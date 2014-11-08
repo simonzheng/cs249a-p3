@@ -12,39 +12,17 @@ namespace NotifierLib {
     template <class T>
     _noinline
     void post(T* const notifier, void (T::Notifiee::*func)()) {
-        for (const auto n : notifier->notifiees()) {
-            try {
-                (n->*func)();
-            } catch (...) {
-                n->onNotificationException();
-            }
-        }
-    }
-
-    template <class T>
-    _noinline
-    void post(const Ptr<T>& notifier, void (T::Notifiee::*func)()) {
-        for (const auto n : notifier->notifiees()) {
-            try {
-                (n->*func)();
-            } catch (...) {
-                n->onNotificationException();
-            }
-        }
-    }
-
-
-    template <class T, typename P1>
-    _noinline
-    void post(
-        T* const notifier, void (T::Notifiee::*func)(const P1),
-        const P1 a
-    ) {
-        for (const auto n : notifier->notifiees()) {
-            try {
-                (n->*func)(a);
-            } catch (...) {
-                n->onNotificationException();
+        const auto list = notifier->notifiees();
+        for (const auto n : list) {
+            const auto a = n->activity();
+            if (a == null || a->immediateDeliveryFlag()) {
+                try {
+                    (n->*func)();
+                } catch (...) {
+                    n->onNotificationException();
+                }
+            } else {
+                a->postingNew(n, [=]() { (n->*func)(); });
             }
         }
     }
@@ -52,18 +30,23 @@ namespace NotifierLib {
     template <class T, typename P1>
     _noinline
     void post(
-        const Ptr<T>& notifier, void (T::Notifiee::*func)(const P1),
+        T* const notifier, void (T::Notifiee::*func)(const P1 a1),
         const P1 a1
     ) {
-        for (const auto n : notifier->notifiees()) {
-            try {
-                (n->*func)(a1);
-            } catch (...) {
-                n->onNotificationException();
+        const auto list = notifier->notifiees();
+        for (const auto n : list) {
+            const auto a = n->activity();
+            if (a == null || a->immediateDeliveryFlag()) {
+                try {
+                    (n->*func)(a1);
+                } catch (...) {
+                    n->onNotificationException();
+                }
+            } else {
+                a->postingNew(n, [=]() { (n->*func)(a1); });
             }
         }
     }
-
 
     template <class T, typename P1>
     _noinline
@@ -71,30 +54,20 @@ namespace NotifierLib {
         T* const notifier, void (T::Notifiee::*func)(const P1& a1),
         const P1& a1
     ) {
-        for (const auto n : notifier->notifiees()) {
-            try {
-                (n->*func)(a1);
-            } catch (...) {
-                n->onNotificationException();
+        const auto list = notifier->notifiees();
+        for (const auto n : list) {
+            const auto a = n->activity();
+            if (a == null || a->immediateDeliveryFlag()) {
+                try {
+                    (n->*func)(a1);
+                } catch (...) {
+                    n->onNotificationException();
+                }
+            } else {
+                a->postingNew(n, [=]() { (n->*func)(a1); });
             }
         }
     }
-
-    template <class T, typename P1>
-    _noinline
-    void post(
-        const Ptr<T>& notifier, void (T::Notifiee::*func)(const P1& a1),
-        const P1& a1
-    ) {
-        for (const auto n : notifier->notifiees()) {
-            try {
-                (n->*func)(a1);
-            } catch (...) {
-                n->onNotificationException();
-            }
-        }
-    }
-
 }
 
 #endif

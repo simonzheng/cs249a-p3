@@ -13,7 +13,13 @@ template <class UnitType, class RepType>
 class Nominal {
 public:
 
-    Nominal(RepType v) :
+    Nominal() :
+        value_(0)
+    {
+        // Nothing else to do.
+    }
+
+    Nominal(const RepType v) :
         value_(v)
     {
         // Nothing else to do.
@@ -26,23 +32,19 @@ public:
     }
 
 
-    bool operator ==(const Nominal& v) const {
-        return value_ == v.value_;
-    }
-	
-    bool operator !=(const Nominal& v) const {
-        return value_ != v.value_;
-    }
-
-
     void operator =(const Nominal& v) {
         value_ = v.value_;
     }
 
 
-    operator RepType() const {
-        return value_;
+    bool operator ==(const Nominal& v) const {
+        return value_ == v.value_;
     }
+
+    bool operator !=(const Nominal& v) const {
+        return value_ != v.value_;
+    }
+
 
     RepType value() const {
         return value_;
@@ -54,65 +56,9 @@ protected:
 
 };
 
-/**
- * Ordinal adds ordering comparisons, addition/subtraction,
- * multiplication/division, and increment/decrement operators.
- */
-template <class UnitType, class RepType>
-class Ordinal : public Nominal<UnitType, RepType> {
-public:
-
-    Ordinal(RepType v) :
-        Nominal<UnitType, RepType>(v)
-    {
-        // Nothing else to do.
-    }
-
-
-    bool operator <(const Ordinal& v) const {
-        return Nominal<UnitType, RepType>::value_ < v.value_;
-    }
-
-    bool operator <=(const Ordinal& v) const {
-        return Nominal<UnitType, RepType>::value_ <= v.value_;
-    }
-
-    bool operator >(const Ordinal& v) const {
-        return Nominal<UnitType, RepType>::value_ > v.value_;
-    }
-
-    bool operator >=(const Ordinal& v) const {
-        return this->value_ >= v.value_;
-    }
-
-
-    Ordinal operator +(const Ordinal& other) const {
-        return this->value_ + other.value_;
-    }
-
-    Ordinal operator -(const Ordinal& other) const {
-        return this->value_ - other.value_;
-    }
-
-    Ordinal operator /(const Ordinal& other) const {
-        return this->value_ / other.value_;
-    }
-
-    Ordinal operator *(const Ordinal& other) const {
-        return this->value_ * other.value_;
-    }
-
-
-    const Ordinal& operator ++() {
-        ++(this->value_);
-        return *this;
-    }
-
-    const Ordinal& operator --() {
-        --(this->value_);
-        return *this;
-    }
-
-};
+template <class U, class R>
+std::ostream& operator <<(std::ostream& out, const Nominal<U, R> v) {
+    return out << v.value();
+}
 
 #endif

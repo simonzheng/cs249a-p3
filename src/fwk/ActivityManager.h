@@ -11,13 +11,19 @@ public:
     /**
      * Return the singleton activty manager instance.
      *
-     * This value should be created by whatever activity manager chosen
+     * This value should be created by whatever activity manager is chosen
      * at startup time.
      */
     static Ptr<ActivityManager> instance() {
         return instance_;
     }
 
+
+    /** Return whether to log information about when activities are run. */
+    virtual bool verbose() = 0;
+
+    /** Modify whether to log information about when activities are run. */
+    virtual void verboseIs(const bool verbose) = 0;
 
     /**
      * Return the managed activity with the given name.
@@ -35,9 +41,10 @@ public:
     virtual void activityDel(const string& name) = 0;
 
     /**
-     * Add the given activity to the end of the queue of activites to run.
+     * Schedule the given activity to run at the time specified by
+     * activity->nextTime().
      */
-    virtual void lastActivityIs(const Ptr<Activity>& ptr) = 0;
+    virtual void activityAdd(const Ptr<Activity>& activity) = 0;
 
 
     /**

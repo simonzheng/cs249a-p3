@@ -16,25 +16,19 @@ public:
         // Nothing else to do.
     }
 
+
     unsigned long references() const {
         return ref_;
     }
 
-    enum Attribute {
-        nextAttributeNumber__ = 1
-    };
-
-    // DRC - support for templates
-    void newRef() const {
-        PtrInterface* const ptr = const_cast<PtrInterface*>(this);
-        ptr->ref_ += 1;
+    void newRef() {
+        ref_ += 1;
     }
 
-    void deleteRef() const {
-        PtrInterface* const ptr = const_cast<PtrInterface*>(this);
-        ptr->ref_ -= 1;
-        if (ptr->ref_ == 0) {
-            ptr->onZeroReferences();
+    void deleteRef() {
+        ref_ -= 1;
+        if (ref_ == 0) {
+            onZeroReferences();
         }
     }
 

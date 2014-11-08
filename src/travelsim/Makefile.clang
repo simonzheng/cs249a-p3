@@ -21,10 +21,10 @@ CXXFLAGS = \
     -Wno-global-constructors \
     -Wno-old-style-cast
 
-malwaresim: always
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o malwaresim $(SRC)/malwaresim/main.cxx
+client1: always
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o client1 $(SRC)/travelsim/client1.cxx
 
 clean:
-	rm -f malwaresim *.o *~
+	rm -f client1 *.o *~
 
 always:

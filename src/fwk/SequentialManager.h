@@ -18,6 +18,16 @@ public:
     }
 
 
+    bool verbose() {
+        return verbose_;
+    }
+
+    void verboseIs(const bool verbose) {
+        verbose_ = verbose;
+    }
+
+
+    _noinline
     Ptr<Activity> activity(const string& name) {
         const auto i = activities_.find(name);
         if (i != activities_.end()) {
@@ -27,6 +37,7 @@ public:
         return null;
     }
 
+    _noinline
     Ptr<Activity> activityNew(const string& name) {
         if (activities_[name] != null) {
             throw NameInUseException(name);
@@ -39,6 +50,7 @@ public:
         return a;
     }
 
+    _noinline
     void activityDel(const string& name) {
         const auto i = activities_.find(name);
         if (i != activities_.end()) {
@@ -46,8 +58,9 @@ public:
         }
     }
 
-    void lastActivityIs(const Ptr<Activity>& activity) {
-	scheduledActivities_.push(activity);
+    _noinline
+    void activityAdd(const Ptr<Activity>& activity) {
+        scheduledActivities_.push(activity);
     }
 
 
@@ -59,29 +72,36 @@ public:
      * Move to the given time, running any scheduled activites with nextTime
      * less than or equal to given time (and run them in chronological order).
      */
+    _noinline
     void nowIs(const Time& t) {
-	while (!scheduledActivities_.empty()) {
-	    const auto& nextToRun = scheduledActivities_.top();
-
+        while (!scheduledActivities_.empty()) {
+            const auto nextToRun = scheduledActivities_.top();
             const auto nextTimeToRun = nextToRun->nextTime();
-	    if (nextTimeToRun > t) {
+
+            if (nextTimeToRun > t) {
                 // Finished running everything before or at time t.
-		break;
-	    }
+                break;
+            }
 
-	    now_ = nextTimeToRun;
+            if (nextTimeToRun > now_) {
+                now_ = nextTimeToRun;
+            }
 
-	    scheduledActivities_.pop();
+            scheduledActivities_.pop();
 
-	    nextToRun->statusIs(Activity::executing);
-	    nextToRun->statusIs(Activity::free);
-	}
+            if (verbose_) {
+                std::cout << timeAsString(nextTimeToRun) << " ";
+                std::cout << "Activity: " << nextToRun->name() << std::endl;
+            }
+
+            nextToRun->statusIs(Activity::running);
+        }
 
         //
         // Move the time up to specified time in case the last scheduled
         // activity ran before t and the next one runs after t.
         //
-	now_ = t;
+        now_ = t;
     }
 
 protected:
@@ -109,9 +129,18 @@ protected:
 
 protected:
 
+    bool verbose_;
     Time now_;
     ActivityMap activities_;
     ActivityQueue scheduledActivities_;
+
+
+    SequentialManager() :
+        verbose_(false),
+        now_(0.0)
+    {
+        // Nothing else to do.
+    }
 
 };
 

@@ -88,70 +88,53 @@
 
 #endif
 
+// Support for DateTime stuff
+#ifdef _WIN32
+#   include <Windows.h>
+#   include <sys/timeb.h>
+#   include <time.h>
+#else
+#   include <sys/time.h>
+#   include <time.h>
+#   include <unistd.h>
+#endif
 
-#include <assert.h>
+// Used by fwk classes
+
+#include <deque>
+#include <functional>
+#include <iostream>
 #include <list>
 #include <queue>
-#include <stdarg.h>
-#include <stdlib.h>
-#include <string.h>
 #include <string>
 #include <typeinfo>
 #include <unordered_map>
+#include <vector>
 
 using std::string;
 
+
 namespace fwk {
+
+#   include "fwk/Nominal.h"
+#   include "fwk/Ordinal.h"
+#   include "fwk/SystemTime.h"
+#   include "fwk/Time.h"
+#   include "fwk/DateTime.h"
 
 #   include "fwk/Ptr.h"
 #   include "fwk/PtrInterface.h"
+#   include "fwk/ActivityElement.h"
 #   include "fwk/RootNotifiee.h"
 #   include "fwk/BaseNotifiee.h"
-#   include "fwk/NotifierLib.h"
 #   include "fwk/NamedInterface.h"
 #   include "fwk/Exception.h"
-#   include "fwk/Nominal.h"
-
-/**
- * Framework defines time as an abstract double representing
- * a number of seconds.
- */
-class Time : public Ordinal<Time, double> {
-public:
-
-    typedef Ordinal<Time, double> super;
-
-
-    Time() :
-        super(0.0)
-    {
-        // Nothing else to do.
-    }
-
-    Time(double time) :
-        super(time)
-    {
-        // Nothing else to do.
-    }
-
-    Time(const Time& time) :
-        super(time)
-    {
-        // Nothing else to do.
-    }
-
-
-    void operator = (const Time& t) {
-        super::operator =(t);
-    }
-
-};
-
-#include "fwk/Activity.h"
-#include "fwk/ActivityManager.h"
-#include "fwk/SequentialActivity.h"
-#include "fwk/SequentialManager.h"
+#   include "fwk/Activity.h"
+#   include "fwk/ActivityManager.h"
+#   include "fwk/NotifierLib.h"
+#   include "fwk/SequentialActivity.h"
+#   include "fwk/SequentialManager.h"
 
 }
 
-#endif /* FWK_FWK_H */
+#endif

@@ -8,7 +8,7 @@
 #ifndef FWK_ROOTNOTIFIEE_H
 #define FWK_ROOTNOTIFIEE_H
 
-class RootNotifiee : public PtrInterface {
+class RootNotifiee : public ActivityElement {
 public:
 
     /**
