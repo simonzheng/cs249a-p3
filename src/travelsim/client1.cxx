@@ -20,7 +20,7 @@ Ptr<Instance> segmentNew(
 
 int main(const int argc, const char* const argv[]) {
     const auto manager = TravelInstanceManager::instanceManager();
-
+    
     const auto stats = manager->instanceNew("myStats", "Stats");
 
 
@@ -34,8 +34,7 @@ int main(const int argc, const char* const argv[]) {
     car->attributeIs("capacity", "5");
     car->attributeIs("cost", "0.75");
 
-
-    manager->instanceNew("stanford", "Residence");  
+    const auto residence = manager->instanceNew("stanford", "Residence");
     manager->instanceNew("menlopark", "Residence");  
 
     manager->instanceNew("sfo", "Airport");  
@@ -66,6 +65,11 @@ int main(const int argc, const char* const argv[]) {
     cout << "# Residences: " << stats->attribute("Residence") << endl;
     cout << "# Airports: " << stats->attribute("Airport") << endl;
     cout << "# Road segments: " << stats->attribute("Road") << endl;
+
+    // Error checking code
+    car->attributeIs("cost", "-0.75");
+    // residence->attribute("segmentNoNumber");
+    
 
     return 0;
 }
