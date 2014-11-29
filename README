@@ -1,0 +1,6 @@
+user: szheng0 (Zheng, Simon)
+# Note, discussed implementation tradeoffs and output with Edric Kyauk, Kevin Heh, Ranajay Sen, and Anh Truong. No code was shared.
+# My code is split across the files as follows:
+# client1.cxx -- has the testing code from p2
+# TravelInstanceManager -- has the TravelInstanceManager code with all of the ___Instance code from p2. Not used in this submission of p3.
+# TravelNetwork -- has the actual entity class definitions and the TravelNetwork class definition. This has been extended from p2 to fit the requirements of p3 detailed in the assignment handout: http://web.stanford.edu/class/cs249a/asgn3.html
