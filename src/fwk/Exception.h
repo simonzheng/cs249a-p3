@@ -195,6 +195,27 @@ public:
 
 };
 
+// Simon's custom exceptions
+
+class DifferentNetworkException : public Exception {
+public:
+    DifferentNetworkException(const string& what) :
+        Exception(what)
+    {
+        // Nothing else to do.
+    }
+};
+
+class InvalidArgumentExeption : public Exception {
+public:
+    InvalidArgumentExeption(const string& what) :
+        Exception(what)
+    {
+        // Nothing else to do.
+    }
+};
+
+
 
 class NoImplementationException : public Exception {
 public:

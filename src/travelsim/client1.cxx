@@ -96,8 +96,6 @@ void segmentNew(
 int main(const int argc, const char* const argv[]) {
     const auto tn1 = TravelNetwork::instanceNew("tn1");
 
-    // const auto tn2 = TravelNetwork::instanceNew("tn2");
-
     Ptr<Airplane> plane1 = Airplane::instanceNew("plane1");
     tn1->vehicleNew(plane1);
 
@@ -124,6 +122,7 @@ int main(const int argc, const char* const argv[]) {
 
     Ptr<Airport> lax1 = Airport::instanceNew("lax1");
     tn1->locationNew(lax1);
+    // tn1->locationDel("lax1");
     
     segmentNew(tn1, "carSeg1", "Road", "stanford1", "sfo1", 20);
     segmentNew(tn1, "carSeg2", "Road", "sfo1", "stanford1", 20);
@@ -157,9 +156,22 @@ int main(const int argc, const char* const argv[]) {
     cout << "# Road segments: " << stats->numRoads() << endl;
 
     // Error checking code
+
     // car1->costIs(-0.75); // should throw RangeException
+    
     // car1->capacityIs(-5); // should throw RangeException but doesn't work right now
     
+    // Try to connect two networks
+    // const auto tn2 = TravelNetwork::instanceNew("tn2");
+    // Ptr<Airport> sfo2 = Airport::instanceNew("sfo2");
+    // tn2->locationNew(sfo2);
+    // Ptr<Road> testRoad = Road::instanceNew("testRoad");
+    // testRoad->sourceIs(stanford1);
+    // testRoad->destinationIs(sfo2);
+    // testRoad->lengthIs(20);
+    // tn1->segmentNew(testRoad);
+
+
 
     return 0;
 }

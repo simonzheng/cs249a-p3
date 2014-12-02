@@ -97,6 +97,7 @@ public:
 *******************************************************************************
 ******************************************************************************/
 class Segment; // forward declared so Location can refer to it.
+class TravelNetwork;
 
 // A location is a place where passenger travel starts or ends, or an 
 // intermediary point along the way. Some intermediate locations allow 
@@ -122,10 +123,6 @@ public:
     typedef SegmentVector::iterator iterator;
     typedef SegmentVector::const_iterator const_iterator;
     typedef SegmentVector::size_type size_type;
-
-    static Ptr<Location> instanceNew(string name) {
-        return new Location(name);
-    }
 
     // Remove the copy and assignment constructors
     Location(const Location&) = delete;
@@ -169,6 +166,14 @@ public:
         return segment;
     }
 
+    // travelNetwork
+    Ptr<TravelNetwork> travelNetwork() {
+        return travelNetwork_;
+    }
+    void travelNetworkIs(const Ptr<TravelNetwork>& travelNetwork) {
+        travelNetwork_ = travelNetwork;
+    }
+
     NotifieeList& notifiees() {
         return notifiees_;
     }
@@ -176,6 +181,8 @@ public:
 protected:
     SegmentVector segmentVector_;
     NotifieeList notifiees_;
+    Ptr<TravelNetwork> travelNetwork_ = null;
+
     explicit Location(const string& name) : NamedInterface(name)
     {
         // Nothing else to do.
@@ -244,11 +251,6 @@ protected:
 
 public:
 
-    static Ptr<Segment> instanceNew(string name) {
-        Ptr<Segment> s = new Segment(name);
-        return s;
-    }
-
     // Remove the copy and assignment constructors
     Segment(const Segment&) = delete;
     void operator =(const Segment&) = delete;
@@ -259,7 +261,12 @@ public:
         return source_;
     }
 
-    void sourceIs(const Ptr<Location>& s) {
+    void sourceIs(const Ptr<Location>& source) {
+        if (source->travelNetwork() != travelNetwork_) {
+            string errorMessage = "Error in sourceIs(): Segment's source and destination should be in same travelNetwork as segment!";
+            cerr << errorMessage << endl;
+            throw fwk::DifferentNetworkException(errorMessage);
+        }
         if (source_ != null) {
             // Removing this source from existing source Location's segment list
             int segmentIndexInSourceList = 0; // 
@@ -269,11 +276,11 @@ public:
                 }
             }
         }
-        if (s != null) {
+        if (source != null) {
             // Connect new source Location's Segment
-            s->segmentNew(this);
+            source->segmentNew(this);
         }
-        source_ = s;
+        source_ = source;
     }
 
     // Destination
@@ -282,6 +289,11 @@ public:
     }
 
     void destinationIs(const Ptr<Location>& destination) {
+        if (destination->travelNetwork() != travelNetwork_) {
+            string errorMessage = "Error in destinationIs(): Segment's source and destination should be in same travelNetwork as segment!";
+            cerr << errorMessage << endl;
+            throw fwk::DifferentNetworkException(errorMessage);
+        }
         destination_ = destination;
     }
 
@@ -294,6 +306,13 @@ public:
         length_ = length;
     }
 
+    // travelNetwork
+    Ptr<TravelNetwork> travelNetwork() {
+        return travelNetwork_;
+    }
+    void travelNetworkIs(const Ptr<TravelNetwork>& travelNetwork) {
+        travelNetwork_ = travelNetwork;
+    }
 
     // Notifiees
     NotifieeList& notifiees() {
@@ -303,6 +322,7 @@ public:
 
 protected:
     NotifieeList notifiees_;
+    Ptr<TravelNetwork> travelNetwork_ = null;
     Ptr<Location> source_ = null;
     Ptr<Location> destination_ = null;
     Miles length_ = 0.0;
@@ -327,9 +347,13 @@ public:
     }
 
     // Source
-    void sourceIs(const Ptr<Location>& s) {
-        // TODO: add the travelNetwork to the definition of Segment and Location and compare them to see that they're the same in this sourceIs function
-        if (dynamic_cast<Airport*>(s.ptr()) != null) {
+    void sourceIs(const Ptr<Location>& source) {
+        if (source->travelNetwork() != travelNetwork_) {
+            string errorMessage = "Error in sourceIs(): Flight's source and destination should be in same travelNetwork as flight!";
+            cerr << errorMessage << endl;
+            throw fwk::DifferentNetworkException(errorMessage);
+        }
+        if (dynamic_cast<Airport*>(source.ptr()) != null) {
             if (source_ != null) {
                 // Removing this source from existing source Location's segment list
                 int segmentIndexInSourceList = 0; // 
@@ -339,26 +363,31 @@ public:
                     }
                 }
             }
-            if (s != null) {
+            if (source != null) {
                 // Connect new source Location's Segment
-                s->segmentNew(this);
+                source->segmentNew(this);
             }
-            source_ = s;
+            source_ = source;
         } else {
             string errorMessage = "Error in sourceIs(): Flight's source and destination can only be of type Airport!";
             cerr << errorMessage << endl;
-            throw fwk::PermissionException(errorMessage);
+            throw fwk::InvalidArgumentExeption(errorMessage);
         }
     }
     
     // Destination
     void destinationIs(const Ptr<Location>& destination) {
+        if (destination->travelNetwork() != travelNetwork_) {
+            string errorMessage = "Error in destinationIs(): Flight's source and destination should be in same travelNetwork as flight!";
+            cerr << errorMessage << endl;
+            throw fwk::DifferentNetworkException(errorMessage);
+        }
         if (dynamic_cast<Airport*>(destination.ptr()) != null) {
             destination_ = destination;
         } else {
             string errorMessage = "Error in destinationIs(): Flight's source and destination can only be of type Airport!";
             cerr << errorMessage << endl;
-            throw fwk::PermissionException(errorMessage);
+            throw fwk::InvalidArgumentExeption(errorMessage);
         }
     }
 
@@ -415,11 +444,6 @@ protected:
 
 public:
 
-    static Ptr<Vehicle> instanceNew(string name) {
-        Ptr<Vehicle> s = new Vehicle(name);
-        return s;
-    }
-
     // Remove the copy and assignment constructors
     Vehicle(const Vehicle&) = delete;
     void operator =(const Vehicle&) = delete;
@@ -457,6 +481,14 @@ public:
         location_ = location;
     }
 
+    // travelNetwork
+    Ptr<TravelNetwork> travelNetwork() {
+        return travelNetwork_;
+    }
+    void travelNetworkIs(const Ptr<TravelNetwork>& travelNetwork) {
+        travelNetwork_ = travelNetwork;
+    }
+
     // Notifiees
     NotifieeList& notifiees() {
         return notifiees_;
@@ -465,6 +497,7 @@ public:
 
 protected:
     NotifieeList notifiees_;
+    Ptr<TravelNetwork> travelNetwork_ = null;
 
     Passengers capacity_ = 0;
     MilesPerHour speed_ = 0.0;
@@ -586,6 +619,7 @@ public:
             cerr << "Error in locationNew: The location name (" << name << ") is already in use. Throwing exception." << endl;
             throw fwk::NameInUseException(name);
         }
+        location->travelNetworkIs(this);
         post(this, &Notifiee::onLocationNew, location);
     }
 
@@ -606,6 +640,7 @@ public:
             (*it)->sourceIs(null);
         }
         const auto next = locationMap_.erase(iter);
+        location->travelNetworkIs(null);
         post(this, &Notifiee::onLocationDel, location);
         return next;
     }
@@ -628,6 +663,7 @@ public:
             cerr << "Error in segmentNew: The segment name (" << name << ") is already in use. Throwing exception." << endl;
             throw fwk::NameInUseException(name);
         }
+        segment->travelNetworkIs(this);
         post(this, &Notifiee::onSegmentNew, segment);
     }
 
@@ -647,6 +683,7 @@ public:
         const auto next = segmentMap_.erase(iter);
         segment->sourceIs(null);
         segment->destinationIs(null);
+        segment->travelNetworkIs(null);
         post(this, &Notifiee::onSegmentDel, segment);
         return next;
     }
@@ -669,6 +706,7 @@ public:
             cerr << "Error in vehicleNew(): The vehicle name (" << name << ") is already in use. Throwing exception." << endl;
             throw fwk::NameInUseException(name);
         }
+        vehicle->travelNetworkIs(this);
     }
 
     Ptr<Vehicle> vehicleDel(const string& name) {
@@ -685,6 +723,8 @@ public:
     VehicleMap::iterator vehicleDel(VehicleMap::const_iterator iter) {
         const auto vehicle = iter->second;
         const auto next = vehicleMap_.erase(iter);
+        vehicle->travelNetworkIs(null);
+        vehicle->locationIs(null);
         return next;
     }
 
@@ -795,7 +835,6 @@ protected:
                 stats_->numFlightsDecr();
             }
         }
-
         
         // We can make this public because it's only available to the stats class.
         Ptr<Stats> stats_;
