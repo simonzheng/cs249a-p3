@@ -26,7 +26,22 @@ using std::vector;
 
 // Declaring Ordinal variable types that may be useful
 class PassengersType{};
-typedef Ordinal<PassengersType, unsigned int> Passengers;
+class Passengers : public Ordinal<PassengersType, unsigned int> {
+public:
+    Passengers() : Ordinal<PassengersType, unsigned int>(0) {}
+    // Modified constructor to prevent negative cost value
+    Passengers (const double v) : Ordinal<PassengersType, unsigned int>(v) {
+        if (v < 0) {
+            throw fwk::RangeException(std::to_string(v));
+        }
+    } 
+    Passengers (Ordinal<PassengersType, unsigned int> v) : Ordinal<PassengersType, unsigned int>(v.value()) {
+        if (v < 0) {
+            throw fwk::RangeException(std::to_string(v.value()));
+        }
+    } 
+};
+
 class DollarsPerMileType{};
 class DollarsPerMile : public Ordinal<DollarsPerMileType, double> {
 public:
@@ -276,11 +291,7 @@ public:
     }
 
     void lengthIs(const Miles length) {
-        try {
-            length_ = length;
-        } catch (fwk::RangeException& e) {
-            cerr << "Invalid length!" << endl;
-        }
+        length_ = length;
     }
 
 
@@ -317,6 +328,7 @@ public:
 
     // Source
     void sourceIs(const Ptr<Location>& s) {
+        // TODO: add the travelNetwork to the definition of Segment and Location and compare them to see that they're the same in this sourceIs function
         if (dynamic_cast<Airport*>(s.ptr()) != null) {
             if (source_ != null) {
                 // Removing this source from existing source Location's segment list
@@ -333,7 +345,9 @@ public:
             }
             source_ = s;
         } else {
-            cerr << "Error in sourceIs(): Flight's source and destination can only be of type Airport!" << endl;
+            string errorMessage = "Error in sourceIs(): Flight's source and destination can only be of type Airport!";
+            cerr << errorMessage << endl;
+            throw fwk::PermissionException(errorMessage);
         }
     }
     
@@ -342,7 +356,9 @@ public:
         if (dynamic_cast<Airport*>(destination.ptr()) != null) {
             destination_ = destination;
         } else {
-            cerr << "Error in destinationIs(): Flight's source and destination can only be of type Airport!" << endl;
+            string errorMessage = "Error in destinationIs(): Flight's source and destination can only be of type Airport!";
+            cerr << errorMessage << endl;
+            throw fwk::PermissionException(errorMessage);
         }
     }
 
@@ -414,11 +430,7 @@ public:
         return capacity_;
     }
     void capacityIs(const Passengers capacity) {
-        try {
-            capacity_ = capacity;
-        } catch (fwk::RangeException& e) {
-            cerr << "Invalid capacity!" << endl;
-        }
+        capacity_ = capacity;
     }
 
     // Speed
@@ -426,11 +438,7 @@ public:
         return speed_;
     }
     void speedIs(const MilesPerHour speed) {
-        try {
-            speed_ = speed;
-        } catch (fwk::RangeException& e) {
-            cerr << "Invalid speed!" << endl;
-        }
+        speed_ = speed;
     }
 
     // DollarsPerMile
@@ -438,12 +446,15 @@ public:
         return cost_;
     }
     void costIs(const DollarsPerMile cost) {
-        try {
-            cout << "Testing Cost" << endl;
-            cost_ = cost;
-        } catch (fwk::RangeException& e) {
-            cout << "Invalid cost!" << endl;
-        }
+        cost_ = cost;
+    }
+
+    // currLocation
+    Ptr<Location> location() {
+        return location_;
+    }
+    void locationIs(const Ptr<Location>& location) {
+        location_ = location;
     }
 
     // Notifiees
@@ -458,6 +469,7 @@ protected:
     Passengers capacity_ = 0;
     MilesPerHour speed_ = 0.0;
     DollarsPerMile cost_ = 0.0;
+    Ptr<Location> location_ = null;
 
     explicit Vehicle(const string& name) : NamedInterface(name)
     {
@@ -540,7 +552,6 @@ protected:
     VehicleMap vehicleMap_;
     Ptr<Stats> stats_;
     Ptr<Conn> conn_;
-
 
     NotifieeList notifiees_;
 
@@ -804,7 +815,6 @@ protected:
 
     }
 
-
     /********************************************************
     * Relative Mutator Functions                            *
     ********************************************************/
@@ -945,7 +955,7 @@ protected:
 public:
     static Ptr<Conn> instanceNew(string name, Ptr<TravelNetwork> tn) {
         Ptr<Conn> c = new Conn(name);
-        c -> travelNetwork_ = tn;
+        c->travelNetwork_ = tn;
         return c;
     }
 

@@ -7,68 +7,158 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
-Ptr<Instance> segmentNew(
-    const Ptr<InstanceManager>& manager, const string& name, const string& spec, 
+// Ptr<Instance> segmentNew(
+//     const Ptr<InstanceManager>& manager, const string& name, const string& spec, 
+//     const string& source, const string& dest, const double length
+// ) {
+//     const auto seg = manager->instanceNew(name, spec);
+//     seg->attributeIs("source", source);
+//     seg->attributeIs("destination", dest);
+//     seg->attributeIs("length", std::to_string(length));
+//     return seg;
+// }
+
+// int main(const int argc, const char* const argv[]) {
+//     const auto manager = TravelInstanceManager::instanceManager();
+    
+//     const auto stats = manager->instanceNew("myStats", "Stats");
+
+
+//     const auto plane = manager->instanceNew("plane", "Airplane");
+//     plane->attributeIs("speed", "500");
+//     plane->attributeIs("capacity", "200");
+//     plane->attributeIs("cost", "40");
+
+//     const auto car = manager->instanceNew("car", "Car");
+//     car->attributeIs("speed", "70");
+//     car->attributeIs("capacity", "5");
+//     car->attributeIs("cost", "0.75");
+
+//     const auto residence = manager->instanceNew("stanford", "Residence");
+//     manager->instanceNew("menlopark", "Residence");  
+
+//     manager->instanceNew("sfo", "Airport");  
+//     manager->instanceNew("lax", "Airport");  
+
+//     segmentNew(manager, "carSeg1", "Road", "stanford", "sfo", 20);
+//     segmentNew(manager, "carSeg2", "Road", "sfo", "stanford", 20);
+//     segmentNew(manager, "carSeg3", "Road", "menlopark", "stanford", 20);
+//     segmentNew(manager, "carSeg4", "Road", "sfo", "menlopark", 20);
+//     segmentNew(manager, "carSeg5", "Road", "stanford", "menlopark", 5);
+//     segmentNew(manager, "carSeg6", "Road", "menlopark", "stanford", 5);
+//     segmentNew(manager, "flightSeg1", "Flight", "sfo", "lax", 350);
+
+//     cout << "carSeg1.source: ";
+//     cout << manager->instance("carSeg1")->attribute("source") << endl;
+
+
+//     const auto conn = manager->instanceNew("myConn", "Conn");
+
+//     const auto query1 = "explore sfo distance 500";
+//     const auto query2 = "explore sfo distance 20";
+//     cout << "**** " << query1 << " ****" << endl;
+//     cout << conn->attribute(query1) << endl;
+//     cout << "**** " << query2 << " ****" << endl;
+//     cout << conn->attribute(query2) << endl;
+
+//     cout << "Stats:" << endl;
+//     cout << "# Residences: " << stats->attribute("Residence") << endl;
+//     cout << "# Airports: " << stats->attribute("Airport") << endl;
+//     cout << "# Road segments: " << stats->attribute("Road") << endl;
+
+//     // Error checking code
+//     // car->attributeIs("cost", "-0.75"); // should throw RangeException
+//     // car->attributeIs("capacity", "-5"); // should throw RangeException but doesn't work right now
+//     // residence->attribute("segmentNoNumber"); // should print error message that segment_ should have an integer
+    
+
+//     return 0;
+// }
+
+void segmentNew(
+    const Ptr<TravelNetwork>& tn, const string& name, const string& spec, 
     const string& source, const string& dest, const double length
 ) {
-    const auto seg = manager->instanceNew(name, spec);
-    seg->attributeIs("source", source);
-    seg->attributeIs("destination", dest);
-    seg->attributeIs("length", std::to_string(length));
-    return seg;
+    // const auto seg = manager->instanceNew(name, spec);
+    Ptr<Segment> seg;
+    if (spec == "Flight") {
+        seg = Flight::instanceNew(name);
+    } else if (spec == "Road") {
+        seg = Road::instanceNew(name);
+    }
+    seg->sourceIs(tn->location(source));
+    seg->destinationIs(tn->location(dest));
+    seg->lengthIs(length);
+    tn->segmentNew(seg);
 }
 
+
 int main(const int argc, const char* const argv[]) {
-    const auto manager = TravelInstanceManager::instanceManager();
+    const auto tn1 = TravelNetwork::instanceNew("tn1");
+
+    // const auto tn2 = TravelNetwork::instanceNew("tn2");
+
+    Ptr<Airplane> plane1 = Airplane::instanceNew("plane1");
+    tn1->vehicleNew(plane1);
+
+    plane1->speedIs(500);
+    plane1->capacityIs(200);
+    plane1->costIs(40);
+
+    Ptr<Car> car1 = Car::instanceNew("car1");
+    tn1->vehicleNew(car1);
+
+    car1->speedIs(70);
+    car1->capacityIs(5);
+    car1->costIs(0.75);
+
+    // const auto residence = manager->instanceNew("stanford", "Residence");
+    Ptr<Residence> stanford1 = Residence::instanceNew("stanford1");
+    tn1->locationNew(stanford1);
+
+    Ptr<Residence> menlopark1 = Residence::instanceNew("menlopark1");
+    tn1->locationNew(menlopark1);
+
+    Ptr<Airport> sfo1 = Airport::instanceNew("sfo1");
+    tn1->locationNew(sfo1);
+
+    Ptr<Airport> lax1 = Airport::instanceNew("lax1");
+    tn1->locationNew(lax1);
     
-    const auto stats = manager->instanceNew("myStats", "Stats");
-
-
-    const auto plane = manager->instanceNew("plane", "Airplane");
-    plane->attributeIs("speed", "500");
-    plane->attributeIs("capacity", "200");
-    plane->attributeIs("cost", "40");
-
-    const auto car = manager->instanceNew("car", "Car");
-    car->attributeIs("speed", "70");
-    car->attributeIs("capacity", "5");
-    car->attributeIs("cost", "0.75");
-
-    const auto residence = manager->instanceNew("stanford", "Residence");
-    manager->instanceNew("menlopark", "Residence");  
-
-    manager->instanceNew("sfo", "Airport");  
-    manager->instanceNew("lax", "Airport");  
-
-    segmentNew(manager, "carSeg1", "Road", "stanford", "sfo", 20);
-    segmentNew(manager, "carSeg2", "Road", "sfo", "stanford", 20);
-    segmentNew(manager, "carSeg3", "Road", "menlopark", "stanford", 20);
-    segmentNew(manager, "carSeg4", "Road", "sfo", "menlopark", 20);
-    segmentNew(manager, "carSeg5", "Road", "stanford", "menlopark", 5);
-    segmentNew(manager, "carSeg6", "Road", "menlopark", "stanford", 5);
-    segmentNew(manager, "flightSeg1", "Flight", "sfo", "lax", 350);
+    segmentNew(tn1, "carSeg1", "Road", "stanford1", "sfo1", 20);
+    segmentNew(tn1, "carSeg2", "Road", "sfo1", "stanford1", 20);
+    segmentNew(tn1, "carSeg3", "Road", "menlopark1", "stanford1", 20);
+    segmentNew(tn1, "carSeg4", "Road", "sfo1", "menlopark1", 20);
+    segmentNew(tn1, "carSeg5", "Road", "stanford1", "menlopark1", 5);
+    segmentNew(tn1, "carSeg6", "Road", "menlopark1", "stanford1", 5);
+    segmentNew(tn1, "flightSeg1", "Flight", "sfo1", "lax1", 350);
 
     cout << "carSeg1.source: ";
-    cout << manager->instance("carSeg1")->attribute("source") << endl;
+    cout << tn1->segment("carSeg1")->source()->name() << endl;
 
+    const auto conn = tn1->conn("conn1");
 
-    const auto conn = manager->instanceNew("myConn", "Conn");
+    string query1Loc = "sfo1";
+    double query1Dist = 500;
+    const auto query1 = "explore " + query1Loc + " distance " + std::to_string(query1Dist);
 
-    const auto query1 = "explore sfo distance 500";
-    const auto query2 = "explore sfo distance 20";
+    string query2Loc = "sfo1";
+    double query2Dist = 20;
+    const auto query2 = "explore " + query2Loc + " distance " + std::to_string(query2Dist);
     cout << "**** " << query1 << " ****" << endl;
-    cout << conn->attribute(query1) << endl;
+    cout << tn1->conn("conn1")->processQuery(query1Loc, query1Dist) << endl;
     cout << "**** " << query2 << " ****" << endl;
-    cout << conn->attribute(query2) << endl;
+    cout << tn1->conn("conn1")->processQuery(query2Loc, query2Dist) << endl;
 
     cout << "Stats:" << endl;
-    cout << "# Residences: " << stats->attribute("Residence") << endl;
-    cout << "# Airports: " << stats->attribute("Airport") << endl;
-    cout << "# Road segments: " << stats->attribute("Road") << endl;
+    Ptr<Stats> stats = tn1->stats("stats1");
+    cout << "# Residences: " << stats->numResidences() << endl;
+    cout << "# Airports: " << stats->numAirports() << endl;
+    cout << "# Road segments: " << stats->numRoads() << endl;
 
     // Error checking code
-    car->attributeIs("cost", "-0.75");
-    // residence->attribute("segmentNoNumber");
+    // car1->costIs(-0.75); // should throw RangeException
+    // car1->capacityIs(-5); // should throw RangeException but doesn't work right now
     
 
     return 0;
