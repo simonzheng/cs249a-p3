@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <ostream>
 #include <iostream>
+#include "fwk/fwk.h"
 
 using std::cout;
 using std::cerr;
@@ -39,7 +40,7 @@ public:
         if (v < 0) {
             throw fwk::RangeException(std::to_string(v.value()));
         }
-    } 
+    }
 };
 
 class DollarsPerMileType{};
@@ -427,11 +428,15 @@ protected:
 ******************************************************************************/
 class Trip : public NamedInterface {
 public:
+    enum Status { idle, scheduled, ready, inProgress, completed};
+
     class Notifiee : public BaseNotifiee<Trip> {
     public:
         void notifierIs(const Ptr<Trip>& trip) {
             connect(trip, this);
         }
+
+        virtual void onStatus() { }
     };
 
 protected:
@@ -507,6 +512,26 @@ public:
         travelNetwork_ = travelNetwork;
     }
 
+    // status
+    Status status() {
+        return status_;
+    }
+    void statusIs(const Status status) {
+        if (status_ != status) { // TODO: check if status_ enum can be > status (i.e. can we use > to make sure we move to a later status)
+            status_ = status;
+            // TODO: do something with wait time
+            post(this, &Notifiee::onStatus);
+        }
+    }
+
+    // waitTime
+    unsigned int waitTime() {
+        return waitTime_;
+    }
+    void waitTimeIs(const unsigned int waitTime) {
+        waitTime_ = waitTime;
+    }
+
     // Notifiees
     NotifieeList& notifiees() {
         return notifiees_;
@@ -518,9 +543,11 @@ protected:
     Ptr<TravelNetwork> travelNetwork_ = null;
     Ptr<Location> startLocation_ = null;
     Ptr<Location> endLocation_ = null;
-    Passengers numTravelers_ = 0.0;
+    Passengers numTravelers_ = 0;
+    Status status_;
+    unsigned int waitTime_ = 0; // TODO: change all instances of cumWaitTime or waitTime to use a diff unit, also find a good sentinal value to say that waitTime hasn't been defined yet
 
-    explicit Trip(const string& name) : NamedInterface(name)
+    explicit Trip(const string& name) : NamedInterface(name), status_(idle)
     {
         // Nothing else to do.
     }
@@ -677,6 +704,8 @@ public:
         virtual void onLocationDel(const Ptr<Location>& location) { }
         virtual void onSegmentNew(const Ptr<Segment>& segment) { }
         virtual void onSegmentDel(const Ptr<Segment>& segment) { }
+        virtual void onTripNew(const Ptr<Trip>& trip) { }
+        virtual void onTripDel(const Ptr<Trip>& trip) { }
     };
 
 protected:
@@ -814,7 +843,7 @@ public:
             throw fwk::NameInUseException(name);
         }
         trip->travelNetworkIs(this);
-        // post(this, &Notifiee::onTripNew, trip); // NTS: May need to add this as notification system
+        post(this, &Notifiee::onTripNew, trip);
     }
 
     Ptr<Trip> tripDel(const string& name) {
@@ -834,7 +863,7 @@ public:
         trip->startLocationIs(null);
         trip->endLocationIs(null);
         trip->travelNetworkIs(null);
-        // post(this, &Notifiee::onTripDel, trip); // NTS: May need to add this as notification system
+        post(this, &Notifiee::onTripDel, trip);
         return next;
     }
 
@@ -917,7 +946,10 @@ protected:
     typedef std::list<Notifiee*> NotifieeList;
     NotifieeList notifiees_;
 
-    // Nest TravelNetworkTracker in Stats
+    
+    /********************************************************
+    * Nest TravelNetworkTracker in Stats                    *
+    ********************************************************/
     class TravelNetworkTracker : public TravelNetwork::Notifiee {
     public:
         static Ptr<TravelNetworkTracker> instanceNew(const Ptr<TravelNetwork>& tn) { 
@@ -985,7 +1017,48 @@ protected:
                 stats_->numFlightsDecr();
             }
         }
+
+        /** Notification that a trip is added to the network. */
+        void onTripNew(const Ptr<Trip>& trip) {
+            stats_->numTripsIncr();
+
+            // Create a new trip tracker for each new trip
+            auto tripTracker = TripTracker::instanceNew(trip);
+            stats_->tripTrackerMap_[trip->name()] = tripTracker;
+            tripTracker->stats_ = stats_; // from slide 28 in lecture3.pdf
+        }
+
+        /** Notification that a trip is removed from the network. */
+        void onTripDel(const Ptr<Trip>& trip) {
+            stats_->numTripsDecr();
+        }
         
+        // We can make this public because it's only available to the stats class.
+        Ptr<Stats> stats_;
+    };
+
+    /********************************************************
+    * Nest TripTracker in Stats                             *
+    ********************************************************/
+    class TripTracker : public Trip::Notifiee {
+    public:
+        static Ptr<TripTracker> instanceNew(const Ptr<Trip>& trip) { 
+            const Ptr<TripTracker> tripTracker = new TripTracker();
+            tripTracker->notifierIs(trip);
+            return tripTracker;
+        }
+
+        /** Notification that the trip's status changed. */
+        void onStatus() {
+            if (notifier()->status() == Trip::completed) {
+                stats_->numCompletedTripsIncr();
+            };
+            if (notifier()->status() == Trip::inProgress) {
+                stats_->numInProgressTripsIncr();
+                stats_->cumWaitTimeIncr(notifier()->waitTime());
+            }
+        }
+
         // We can make this public because it's only available to the stats class.
         Ptr<Stats> stats_;
     };
@@ -994,7 +1067,14 @@ protected:
     unsigned int numAirports_ = 0;
     unsigned int numFlights_ = 0;
     unsigned int numRoads_ = 0;
+    unsigned int numTrips_ = 0;
+    unsigned int numCompletedTrips_ = 0;
+    unsigned int numInProgressTrips_ = 0;
+    unsigned int cumWaitTime_ = 0;
+
     Ptr<TravelNetworkTracker> travelNetworkTracker_;
+    typedef unordered_map< string, Ptr<TripTracker> > TripTrackerMap;
+    TripTrackerMap tripTrackerMap_;
 
     explicit Stats(const string& name) : NamedInterface(name)
     {
@@ -1005,46 +1085,62 @@ protected:
     }
 
     /********************************************************
-    * Relative Mutator Functions                            *
+    * Relative Mutator Functions                            * TODO: Get rid of these and replace them with originals
     ********************************************************/
-    // numResidencesIncr
     void numResidencesIncr() {
         numResidences_++;
     }
-
-    // numResidencesDecr
     void numResidencesDecr() {
         numResidences_--;
     }
 
-    // numAirportsIncr
     void numAirportsIncr() {
         numAirports_++;
     }
-
-    // numAirportsDecr
     void numAirportsDecr() {
         numAirports_--;
     }
 
-    // numFlightsIncr
     void numFlightsIncr() {
         numFlights_++;
     }
-
-    // numFlightsDecr
     void numFlightsDecr() {
         numFlights_--;
     }
 
-    // numRoadsIncr
     void numRoadsIncr() {
         numRoads_++;
     }
-
-    // numRoadsDecr
     void numRoadsDecr() {
         numRoads_--;
+    }
+
+    void numTripsIncr() {
+        numTrips_++;
+    }
+    void numTripsDecr() {
+        numTrips_--;
+    }
+
+    void numCompletedTripsIncr() {
+        numCompletedTrips_++;
+    }
+    void numCompletedTripsDecr() {
+        numCompletedTrips_--;
+    }
+
+    void numInProgressTripsIncr() {
+        numInProgressTrips_++;
+    }
+    void numInProgressTripsDecr() {
+        numInProgressTrips_--;
+    }
+
+    void cumWaitTimeIncr(const unsigned int waitTime) {
+        cumWaitTime_ += waitTime;
+    }
+    void cumWaitTimeDecr(const unsigned int waitTime) {
+        cumWaitTime_ -= waitTime;
     }
 
 
@@ -1068,25 +1164,38 @@ public:
     /********************************************************
     * Accessor Functions                                    *
     ********************************************************/
-
-    // numResidences
     unsigned int numResidences() {
         return numResidences_;
     }
 
-    // numAirports
     unsigned int numAirports() {
         return numAirports_;
     }
 
-    // numFlights
     unsigned int numFlights() {
         return numFlights_;
     }
 
-    // numRoads
     unsigned int numRoads() {
         return numRoads_;
+    }
+
+    unsigned int numTrips() {
+        return numTrips_;
+    }
+
+    unsigned int numInProgressTrips() {
+        return numInProgressTrips_; // TODO: check if this should be numInProgressTrips or (numInProgressTrips - numCompletedTrips)
+    }
+
+    unsigned int numCompletedTrips() {
+        return numCompletedTrips_;
+    }
+
+    double averageWaitTime() { // TODO: check what type to return
+        if (numInProgressTrips_ == 0) return 0;
+        
+        return double(cumWaitTime_) / numInProgressTrips_;
     }
 };
 

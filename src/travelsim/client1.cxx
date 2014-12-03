@@ -150,7 +150,6 @@ int main(const int argc, const char* const argv[]) {
     segmentNew(tn1, "carSeg5", "Road", "stanford1", "menlopark1", 5);
     segmentNew(tn1, "carSeg6", "Road", "menlopark1", "stanford1", 5);
     segmentNew(tn1, "flightSeg1", "Flight", "sfo1", "lax1", 350);
-    tripNew(tn1, "trip1", "sfo1", "lax1", 350); // NTS: added
 
     cout << "carSeg1.source: ";
     cout << tn1->segment("carSeg1")->source()->name() << endl;
@@ -174,6 +173,40 @@ int main(const int argc, const char* const argv[]) {
     cout << "# Residences: " << stats->numResidences() << endl;
     cout << "# Airports: " << stats->numAirports() << endl;
     cout << "# Road segments: " << stats->numRoads() << endl;
+    
+    string tripName1 = "trip1";
+    string tripName2 = "trip2";
+    
+    cout << "**Adding Trips to Network **" << endl;
+    tripNew(tn1, tripName1, "sfo1", "lax1", 350); // NTS: added
+    tripNew(tn1, tripName2, "sfo1", "lax1", 350); // NTS: added
+    const auto trip1 = tn1->trip(tripName1);
+    const auto trip2 = tn1->trip(tripName2);
+    cout << "# Trips: " << stats->numTrips() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
+    
+    trip1->statusIs(Trip::inProgress);
+    cout << "**Trip1 set to inProgress**" << endl;
+    cout << "# Trips: " << stats->numTrips() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
+
+    trip2->statusIs(Trip::inProgress);
+    cout << "**Trip2 set to inProgress**" << endl;
+    cout << "# Trips: " << stats->numTrips() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
+
+    trip1->statusIs(Trip::completed);
+    cout << "**Trip set to completed**" << endl;
+    cout << "# Trips: " << stats->numTrips() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
 
     // Error checking code
 
