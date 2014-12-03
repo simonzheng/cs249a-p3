@@ -349,7 +349,7 @@ public:
 
     // Source
     void sourceIs(const Ptr<Location>& source) {
-        if (source->travelNetwork() != travelNetwork_) {
+        if (source != null && source->travelNetwork() != travelNetwork_) {
             string errorMessage = "Error in sourceIs(): Flight's source and destination should be in same travelNetwork as flight!";
             cerr << errorMessage << endl;
             throw fwk::DifferentNetworkException(errorMessage);
@@ -378,7 +378,7 @@ public:
     
     // Destination
     void destinationIs(const Ptr<Location>& destination) {
-        if (destination->travelNetwork() != travelNetwork_) {
+        if (destination != null && destination->travelNetwork() != travelNetwork_) {
             string errorMessage = "Error in destinationIs(): Flight's source and destination should be in same travelNetwork as flight!";
             cerr << errorMessage << endl;
             throw fwk::DifferentNetworkException(errorMessage);
@@ -428,7 +428,7 @@ protected:
 ******************************************************************************/
 class Trip : public NamedInterface {
 public:
-    enum Status { idle, scheduled, ready, inProgress, completed};
+    enum Status { notInProgress, inProgress, completed};
 
     class Notifiee : public BaseNotifiee<Trip> {
     public:
@@ -458,7 +458,7 @@ public:
     }
 
     void startLocationIs(const Ptr<Location>& startLocation) {
-        if (startLocation->travelNetwork() != travelNetwork_) {
+        if (startLocation != null && startLocation->travelNetwork() != travelNetwork_) {
             string errorMessage = "Error in startLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
             cerr << errorMessage << endl;
             throw fwk::DifferentNetworkException(errorMessage);
@@ -487,7 +487,7 @@ public:
     }
 
     void endLocationIs(const Ptr<Location>& endLocation) {
-        if (endLocation->travelNetwork() != travelNetwork_) {
+        if (endLocation != null && endLocation->travelNetwork() != travelNetwork_) {
             string errorMessage = "Error in endLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
             cerr << errorMessage << endl;
             throw fwk::DifferentNetworkException(errorMessage);
@@ -551,7 +551,7 @@ protected:
     Status status_;
     unsigned int waitTime_ = 0; // TODO: change all instances of cumWaitTime or waitTime to use a diff unit, also find a good sentinal value to say that waitTime hasn't been defined yet
 
-    explicit Trip(const string& name) : NamedInterface(name), status_(idle)
+    explicit Trip(const string& name) : NamedInterface(name), status_(notInProgress)
     {
         // Nothing else to do.
     }
@@ -1035,6 +1035,8 @@ protected:
         /** Notification that a trip is removed from the network. */
         void onTripDel(const Ptr<Trip>& trip) {
             stats_->numTripsDecr();
+            // tripTrackerMap_.erase(iter);
+            stats_->tripTrackerMap_.erase(trip->name());
         }
         
         // We can make this public because it's only available to the stats class.

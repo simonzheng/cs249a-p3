@@ -202,7 +202,14 @@ int main(const int argc, const char* const argv[]) {
     cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
 
     trip1->statusIs(Trip::completed);
-    cout << "**Trip set to completed**" << endl;
+    cout << "**Trip1 set to completed**" << endl;
+    cout << "# Trips: " << stats->numTrips() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
+
+    tn1->tripDel(tripName1);
+    cout << "**Trip1 deleted**" << endl;
     cout << "# Trips: " << stats->numTrips() << endl;
     cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
     cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
@@ -214,7 +221,7 @@ int main(const int argc, const char* const argv[]) {
     // car1->capacityIs(-5); // should throw RangeException but doesn't work right now
     
     // trip1->statusIs(Trip::inProgress); // shouldn't let you change status back
-    
+
     // Try to connect two networks
     // const auto tn2 = TravelNetwork::instanceNew("tn2");
     // Ptr<Airport> sfo2 = Airport::instanceNew("sfo2");
