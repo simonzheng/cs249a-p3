@@ -263,7 +263,7 @@ public:
     }
 
     void sourceIs(const Ptr<Location>& source) {
-        if (source->travelNetwork() != travelNetwork_) {
+        if (source != null && source->travelNetwork() != travelNetwork_) {
             string errorMessage = "Error in sourceIs(): Segment's source and destination should be in same travelNetwork as segment!";
             cerr << errorMessage << endl;
             throw fwk::DifferentNetworkException(errorMessage);
@@ -290,7 +290,7 @@ public:
     }
 
     void destinationIs(const Ptr<Location>& destination) {
-        if (destination->travelNetwork() != travelNetwork_) {
+        if (destination != null && destination->travelNetwork() != travelNetwork_) {
             string errorMessage = "Error in destinationIs(): Segment's source and destination should be in same travelNetwork as segment!";
             cerr << errorMessage << endl;
             throw fwk::DifferentNetworkException(errorMessage);
