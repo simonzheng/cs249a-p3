@@ -211,8 +211,9 @@ int main(const int argc, const char* const argv[]) {
     // Error checking code
 
     // car1->costIs(-0.75); // should throw RangeException
-    
     // car1->capacityIs(-5); // should throw RangeException but doesn't work right now
+    
+    // trip1->statusIs(Trip::inProgress); // shouldn't let you change status back
     
     // Try to connect two networks
     // const auto tn2 = TravelNetwork::instanceNew("tn2");

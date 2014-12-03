@@ -517,10 +517,14 @@ public:
         return status_;
     }
     void statusIs(const Status status) {
-        if (status_ != status) { // TODO: check if status_ enum can be > status (i.e. can we use > to make sure we move to a later status)
+        if (status > status_) {
             status_ = status;
-            // TODO: do something with wait time
+            // TODO: do something with assigning a wait time if it's set to inProgress in onStatus
             post(this, &Notifiee::onStatus);
+        } else {
+            string errorMessage = "Error in statusIs(): Trip's current status is already farther along than the new status to be assigned!";
+            cerr << errorMessage << endl;
+            throw fwk::InvalidArgumentExeption(errorMessage);
         }
     }
 
