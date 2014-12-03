@@ -86,10 +86,29 @@ void segmentNew(
     } else if (spec == "Road") {
         seg = Road::instanceNew(name);
     }
+    tn->segmentNew(seg);
     seg->sourceIs(tn->location(source));
     seg->destinationIs(tn->location(dest));
     seg->lengthIs(length);
-    tn->segmentNew(seg);
+    
+}
+
+void tripNew(
+    const Ptr<TravelNetwork>& tn, const string& name,
+    const string& source, const string& dest, const size_t numTravelers
+) {
+    // const auto seg = manager->instanceNew(name, spec);
+    Ptr<Trip> trip = Trip::instanceNew(name);
+    
+    // if (spec == "Flight") {
+    //     seg = Flight::instanceNew(name);
+    // } else if (spec == "Road") {
+    //     seg = Road::instanceNew(name);
+    // }
+    tn->tripNew(trip);
+    trip->startLocationIs(tn->location(source));
+    trip->endLocationIs(tn->location(dest));
+    trip->numTravelersIs(numTravelers);
 }
 
 
@@ -131,6 +150,7 @@ int main(const int argc, const char* const argv[]) {
     segmentNew(tn1, "carSeg5", "Road", "stanford1", "menlopark1", 5);
     segmentNew(tn1, "carSeg6", "Road", "menlopark1", "stanford1", 5);
     segmentNew(tn1, "flightSeg1", "Flight", "sfo1", "lax1", 350);
+    tripNew(tn1, "trip1", "sfo1", "lax1", 350); // NTS: added
 
     cout << "carSeg1.source: ";
     cout << tn1->segment("carSeg1")->source()->name() << endl;

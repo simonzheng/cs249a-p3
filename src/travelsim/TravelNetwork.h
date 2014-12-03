@@ -425,6 +425,111 @@ protected:
 /******************************************************************************
 *******************************************************************************
 ******************************************************************************/
+class Trip : public NamedInterface {
+public:
+    class Notifiee : public BaseNotifiee<Trip> {
+    public:
+        void notifierIs(const Ptr<Trip>& trip) {
+            connect(trip, this);
+        }
+    };
+
+protected:
+    typedef std::list<Notifiee*> NotifieeList;
+
+public:
+
+    static Ptr<Trip> instanceNew(const string& name) {
+        return new Trip(name);
+    }
+
+    // Remove the copy and assignment constructors
+    Trip(const Trip&) = delete;
+    void operator =(const Trip&) = delete;
+
+    // Source
+    Ptr<Location> startLocation() {
+        return startLocation_;
+    }
+
+    void startLocationIs(const Ptr<Location>& startLocation) {
+        if (startLocation->travelNetwork() != travelNetwork_) {
+            string errorMessage = "Error in startLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
+            cerr << errorMessage << endl;
+            throw fwk::DifferentNetworkException(errorMessage);
+        }
+        
+        // // NTS: This is the segment logic to replace the current pointer.
+        // if (startLocation_ != null) {
+        //     // Removing this startLocation from existing startLocation Location's trip list
+        //     int tripIndexInSourceList = 0; // 
+        //     for (auto it = startLocation_->tripIter(); it != startLocation_->tripIterEnd(); ++it) {
+        //         if ((*it)->name() == this->name()) {
+        //             startLocation_->tripDel(tripIndexInSourceList);
+        //         }
+        //     }
+        // }
+        // if (startLocation != null) { // Don't assign the startLocation's trip to be this if startLocation is null
+        //     // Connect new startLocation Location's Trip
+        //     startLocation->tripNew(this);
+        // }
+        startLocation_ = startLocation;
+    }
+
+    // Destination
+    Ptr<Location> endLocation() {
+        return endLocation_;
+    }
+
+    void endLocationIs(const Ptr<Location>& endLocation) {
+        if (endLocation->travelNetwork() != travelNetwork_) {
+            string errorMessage = "Error in endLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
+            cerr << errorMessage << endl;
+            throw fwk::DifferentNetworkException(errorMessage);
+        }
+        endLocation_ = endLocation;
+    }
+
+    // Length
+    Passengers numTravelers() {
+        return numTravelers_;
+    }
+
+    void numTravelersIs(const Passengers numTravelers) {
+        numTravelers_ = numTravelers;
+    }
+
+    // travelNetwork
+    Ptr<TravelNetwork> travelNetwork() {
+        return travelNetwork_;
+    }
+    void travelNetworkIs(const Ptr<TravelNetwork>& travelNetwork) {
+        travelNetwork_ = travelNetwork;
+    }
+
+    // Notifiees
+    NotifieeList& notifiees() {
+        return notifiees_;
+    }
+
+
+protected:
+    NotifieeList notifiees_;
+    Ptr<TravelNetwork> travelNetwork_ = null;
+    Ptr<Location> startLocation_ = null;
+    Ptr<Location> endLocation_ = null;
+    Passengers numTravelers_ = 0.0;
+
+    explicit Trip(const string& name) : NamedInterface(name)
+    {
+        // Nothing else to do.
+    }
+    ~Trip() { }
+};
+
+/******************************************************************************
+*******************************************************************************
+******************************************************************************/
 
 // A vehicle is a mode of transportation such as a plane or car. A vehicle has 
 // attributes specifying the mean speed traveling along a segment, in miles per 
@@ -578,11 +683,13 @@ protected:
     typedef std::unordered_map< string, Ptr<Location> > LocationMap;
     typedef std::unordered_map< string, Ptr<Segment> > SegmentMap;
     typedef std::unordered_map< string, Ptr<Vehicle> > VehicleMap;
+    typedef std::unordered_map< string, Ptr<Trip> > TripMap;
     typedef std::list<Notifiee*> NotifieeList;
 
     LocationMap locationMap_;
     SegmentMap segmentMap_;
     VehicleMap vehicleMap_;
+    TripMap tripMap_;
     Ptr<Stats> stats_;
     Ptr<Conn> conn_;
 
@@ -685,6 +792,49 @@ public:
         segment->destinationIs(null);
         segment->travelNetworkIs(null);
         post(this, &Notifiee::onSegmentDel, segment);
+        return next;
+    }
+
+    /********************************************************
+    * Trip Operations                                       *
+    ********************************************************/
+    Ptr<Trip> trip(const string& name) {
+        const auto i = tripMap_.find(name);
+        if (i != tripMap_.end()) {
+            return i->second;
+        }
+        cerr << "Error in trip(): Could not find a trip by the name (" << name << "). Returning null." << endl;
+        return null;
+    }
+
+    void tripNew(const Ptr<Trip>& trip) {
+        const string name = trip->name();
+        if (! (tripMap_.insert(TripMap::value_type(name, trip)).second) ) {
+            cerr << "Error in tripNew: The trip name (" << name << ") is already in use. Throwing exception." << endl;
+            throw fwk::NameInUseException(name);
+        }
+        trip->travelNetworkIs(this);
+        // post(this, &Notifiee::onTripNew, trip); // NTS: May need to add this as notification system
+    }
+
+    Ptr<Trip> tripDel(const string& name) {
+        const auto iter = tripMap_.find(name);
+        if (iter == tripMap_.end()) {
+            cerr << "Error in tripDel: Could not find a trip by the name (" << name << "). Returning null." << endl;
+            return null;
+        }
+        auto trip = iter->second;
+        tripDel(iter);
+        return trip;
+    }
+
+    TripMap::iterator tripDel(TripMap::const_iterator iter) {
+        const auto trip = iter->second;
+        const auto next = tripMap_.erase(iter);
+        trip->startLocationIs(null);
+        trip->endLocationIs(null);
+        trip->travelNetworkIs(null);
+        // post(this, &Notifiee::onTripDel, trip); // NTS: May need to add this as notification system
         return next;
     }
 
