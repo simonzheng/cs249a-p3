@@ -1,17 +1,13 @@
-/**
- * Simple simulation for a variation on a whackamole game.
- *
- * Only one mole and a player cannot interrupt a swing even if the mole hides
- * during the swing.
- */
-
 #include "fwk/fwk.h"
-
 #include <random>
 
-using namespace fwk;
-using NotifierLib::post;
+#include "TravelNetwork.h"
 
+using namespace fwk;
+
+/********************************************************************************
+* Helper Classes and Functions                                                  *
+*********************************************************************************/
 
 /**
  * Helper class for random number generation.
@@ -57,81 +53,92 @@ protected:
     {
         // Nothing else to do.
     }
-
 };
-
-
-static Ptr<Random> rng = Random::instanceNew();
-
 
 static void logEntryNew(const Time t, const string& s) {
     std::cout << timeMilliAsString(t) << " " << s << std::endl;
 }
 
-
-/**
- * Mole represents the current state of a mole, either hidden or visible.
- */
-class Mole : public PtrInterface {
-public:
-
-    enum Status { hidden, visible };
-
-    class Notifiee : public BaseNotifiee<Mole> {
-    public:
-
-        void notifierIs(const Ptr<Mole>& mole) {
-            connect(mole, this);
-        }
-
-
-        virtual void onStatus() { }
-
-    };
-
-protected:
-
-    typedef std::list<Notifiee*> NotifieeList;
-
-public:
-
-    static Ptr<Mole> instanceNew() {
-        return new Mole();
+void locationNew(
+    const Ptr<TravelNetwork>& tn, const string& name, const string& spec
+) {
+    Ptr<Location> location;
+    if (spec == "Residence") {
+        location = Residence::instanceNew(name);
+    } else if (spec == "Airport") {
+        location = Airport::instanceNew(name);
     }
+    tn->locationNew(location);
+}
 
-
-    Status status() {
-        return status_;
+void segmentNew(
+    const Ptr<TravelNetwork>& tn, const string& name, const string& spec, 
+    const string& source, const string& dest, const double length
+) {
+    Ptr<Segment> seg;
+    if (spec == "Flight") {
+        seg = Flight::instanceNew(name);
+    } else if (spec == "Road") {
+        seg = Road::instanceNew(name);
     }
+    tn->segmentNew(seg);
+    seg->sourceIs(tn->location(source));
+    seg->destinationIs(tn->location(dest));
+    seg->lengthIs(length);
+}
 
-    NotifieeList& notifiees() {
-        return notifiees_;
+void vehicleNew(
+    const Ptr<TravelNetwork>& tn, const string& name, const string& spec, 
+    const unsigned int speed, const unsigned int capacity, const double cost, const string locationName
+) {
+    Ptr<Vehicle> vehicle;
+    if (spec == "Airplane") {
+        vehicle = Airplane::instanceNew(name);
+    } else if (spec == "Car") {
+        vehicle = Car::instanceNew(name);
     }
+    tn->vehicleNew(vehicle);
+    vehicle->speedIs(speed);
+    vehicle->capacityIs(capacity);
+    vehicle->costIs(cost);
+    vehicle->locationIs(tn->location(locationName));
+}
 
-protected:
-
-    friend class MoleSim;
-
-    Status status_;
-    NotifieeList notifiees_;
-
-
-    Mole() :
-        status_(visible)
-    {
-        // Nothing else to do.
-    }
+void tripNew(
+    const Ptr<TravelNetwork>& tn, const string& name,
+    const string& source, const string& dest, const size_t numTravelers
+) {
+    Ptr<Trip> trip = Trip::instanceNew(name);
+    tn->tripNew(trip);
+    trip->startLocationIs(tn->location(source));
+    trip->endLocationIs(tn->location(dest));
+    trip->numTravelersIs(numTravelers);
+}
 
 
-    void statusIs(const Status status) {
-        if (status_ != status) {
-            status_ = status;
+static const Ptr<TravelNetwork> setupNetwork(string networkName) {
+    const Ptr<TravelNetwork> tn = TravelNetwork::instanceNew(networkName);
+    vehicleNew(tn, "plane1", "Airplane", 500, 200, 40, "stanford1");
+    vehicleNew(tn, "car1", "Car", 70, 5, 0.75, "stanford1");
 
-            post(this, &Notifiee::onStatus);
-        }
-    }
+    locationNew(tn, "stanford1", "Residence");
+    locationNew(tn, "menlopark1", "Residence");
 
-};
+    locationNew(tn, "sfo1", "Airport");
+    locationNew(tn, "lax1", "Airport");
+    return tn;
+}
+
+/********************************************************************************
+* Global Variables                                                              *
+*********************************************************************************/
+
+static Ptr<Random> rng = Random::instanceNew();
+
+
+/********************************************************************************
+* Simulation Classes                                                            *
+*********************************************************************************/
 
 /**
  * Common base class for simulations.
@@ -149,18 +156,18 @@ public:
 
 };
 
-
 /**
- * MoleSim is the simulator logic for a mole.
+ * TripRequesterSim is the simulator logic for a tripRequester that randomly 
+ * requests trips from a particular TravelNetwork.
  */
-class MoleSim : public Sim {
+class TripRequesterSim : public Sim {
 public:
 
-    static Ptr<MoleSim> instanceNew(
-        const Ptr<ActivityManager>& mgr, const Ptr<Mole>& mole
+    static Ptr<TripRequesterSim> instanceNew(
+        const Ptr<ActivityManager>& mgr, const Ptr<TravelNetwork>& travelNetwork
     ) {
-        const Ptr<MoleSim> sim = new MoleSim(mole);
-        const auto a = mgr->activityNew("MoleSim");
+        const Ptr<TripRequesterSim> sim = new TripRequesterSim(travelNetwork);
+        const auto a = mgr->activityNew("TripRequesterSim");
         a->nextTimeIs(mgr->now());
         a->statusIs(Activity::scheduled);
         mgr->activityAdd(a);
@@ -172,26 +179,30 @@ public:
     void onStatus() {
         const auto a = notifier();
         if (a->status() == Activity::running) {
-            if (mole_->status() == Mole::visible) {
-                logEntryNew(a->manager()->now(), "Mole becomes hidden");
-                mole_->statusIs(Mole::hidden);
-                const auto delta = rng->normalRange(3.0, 1.5, 0.5, 5.0);
-                a->nextTimeIsOffset(delta);
-            } else {
-                logEntryNew(a->manager()->now(), "Mole becomes visible");
-                mole_->statusIs(Mole::visible);
-                a->nextTimeIsOffset(0.25);
-            }
+            string tripName = tripNameFromNum(tripNum);
+            logEntryNew(a->manager()->now(), "Adding trip: " + tripName);
+            tripNew(travelNetwork_, tripName, "sfo1", "lax1", 350); // TODO: changes these tripNew fields to be random
+            tripNum++;
+            const auto delta = rng->normalRange(3.0, 1.5, 0.5, 5.0);
+            a->nextTimeIsOffset(delta);
         }
     }
 
 protected:
 
-    Ptr<Mole> mole_;
+    string tripNameFromNum(unsigned int tripNum) {
+        std::ostringstream oss;
+        oss << "RequestedTrip" << tripNum;
+        return oss.str();
+    }
+
+    Ptr<TravelNetwork> travelNetwork_;
+    unsigned int tripNum; // counter for our trip numbers
 
 
-    MoleSim(const Ptr<Mole> mole) :
-        mole_(mole)
+    TripRequesterSim(const Ptr<TravelNetwork> travelNetwork) :
+        travelNetwork_(travelNetwork),
+        tripNum(1)
     {
         // Nothing else to do.
     }
@@ -199,118 +210,137 @@ protected:
 };
 
 /**
- * PlayerSim is the simulator logic for a player.
+ * ServiceSim is the simulator logic for a serviceSim. 
  */
-class PlayerSim : public Sim {
+class ServiceSim : public Sim {
 public:
 
-    static Ptr<PlayerSim> instanceNew(
-        const Ptr<ActivityManager>& mgr, const Ptr<Mole>& mole
+    static Ptr<ServiceSim> instanceNew(
+        const Ptr<ActivityManager>& mgr, const Ptr<TravelNetwork>& tn
     ) {
-        const Ptr<PlayerSim> sim = new PlayerSim(mole);
-        const auto a = mgr->activityNew("PlayerSim");
+        const Ptr<ServiceSim> sim = new ServiceSim(tn);
+        const auto a = mgr->activityNew("ServiceSim");
         sim->notifierIs(a);
         return sim;
     }
 
-
-    U64 attempts() {
-        return attempts_;
-    }
-
-    U64 hits() {
-        return hits_;
-    }
-
-
-    void onStatus() {
-        const auto a = notifier();
-        if (a->status() == Activity::running) {
-            attempts_ += 1;
-
-            const auto t = a->manager()->now();
-            if (reactor_->notifier()->status() == Mole::visible) {
-                hits_ += 1;
-                logEntryNew(t, "Player hits mole");
-            } else {
-                logEntryNew(t, "Player misses mole");
-            }
+    void onTravelNetworkTripNew(const Ptr<Trip>& trip) {
+        waitingTrips_.push(trip);
+        if (availableVehicles_.size() > 0) {
+            logEntryNew(notifier()->manager()->now(), trip->name() + ": ServiceSim will schedule the trip since there's at least one available car for: " + trip->name());
+            scheduleTrip();
+        } else {
+            logEntryNew(notifier()->manager()->now(), trip->name() + ": ServiceSim will queue trip since no cars available");
         }
     }
 
-    void onMoleStatus(const Ptr<Mole>& mole) {
-        const auto a = notifier();
-        if (a->status() == Activity::idle && mole->status() == Mole::visible) {
-            logEntryNew(a->manager()->now(), "Player starts swing");
-            const auto delta = rng->normalRange(0.5, 0.3, 0.0, 5);
-            a->nextTimeIsOffset(delta);
-            a->statusIs(Activity::scheduled);
-            a->manager()->activityAdd(a);
+    void onTravelNetworkVehicleNew(const Ptr<Vehicle>& vehicle) {
+        availableVehicles_.push_back(vehicle);
+        if (waitingTrips_.size() > 0) {
+            logEntryNew(notifier()->manager()->now(), vehicle->name() + ": ServiceSim will schedule a trip since this car is available");
+            scheduleTrip();
+        } else {
+            logEntryNew(notifier()->manager()->now(), vehicle->name() + ": ServiceSim will put this car in the list beacuse no trips waiting");
         }
     }
+
+
 
 protected:
 
-    class MoleReactor : public Mole::Notifiee {
+    void scheduleTrip() {
+        logEntryNew(notifier()->manager()->now(), "Scheduling trip... [TODO]");
+
+        // TODO: get nearest vehicle and create new tripSim, add activity to the manager, next time offset
+        // const Ptr<TripSim> tripSim = TripSim::instanceNew(notifier()->manager(), trip);
+        // logEntryNew(notifier()->manager()->now(), "New TripSim created after TripSim implemented");
+        // assignNearestAvailableVehicle(trip, tripSim); // TODO: make this function, also ask if getNearestVehicle should be tn->getNearestVehicle
+        // logEntryNew(notifier()->manager()->now(), "nearestAvailableVehicle assigned");
+
+        // TOOD: consider setting trip's wait time above
+        // notifier()->nextTimeIsOffset(delta);
+        // notifier()->statusIs(Activity::scheduled);
+        // notifier()->manager()->activityAdd(a);
+    }
+
+    // void assignNearestAvailableVehicle(const Ptr<Trip>& trip, const Ptr<TripSim>& tripSim) { // TODO: implement this
+    //     Ptr<Vehicle> nearestAvailableVehicle = availableVehicles_.at(0); // TODO: change this later to get the path, distance, and nearest available vehicle and create the tripSim
+    //     availableVehicles_.erase(0);
+    //     if (nearestAvailableVehicle != null) {
+    //         logEntryNew(notifier()->manager()->now(), "Found nearest nearestAvailableVehicle as: " + nearestAvailableVehicle->name() + ". Would create appropriate tripSim and path from here.");
+    //     } else {
+    //         logEntryNew(notifier()->manager()->now(), "Couldn't find nearest nearestAvailableVehicle");
+    //     }
+        
+    //     // Ptr<Vehicle> nearestAvailableVehicle = null;
+    //     // Miles nearestDistance = std::numeric_limits::max();
+    //     // for (Ptr<Vehicle>& v : availableVehicles_) {
+    //     //     // TODO: find nearest vehicle
+    //     //     // Reomve nearest vehicle from queue
+    //     //     // Assign it to the tripSim object
+    //     //     // Assign the waitTime for the trip object
+    //     // }
+    //     return nearestAvailableVehicle;
+    // }
+
+    // Embedded TravelNetworkReactor
+    class TravelNetworkReactor : public TravelNetwork::Notifiee {
     public:
-
-        void onStatus() {
-            player_->onMoleStatus(notifier());
+        void onTripNew(const Ptr<Trip>& trip) {
+            serviceSim_->onTravelNetworkTripNew(trip); //trampoline
         }
 
+        void onVehicleNew(const Ptr<Vehicle>& vehicle) {
+            serviceSim_->onTravelNetworkVehicleNew(vehicle); //trampoline
+        }
     protected:
-
-        friend class PlayerSim;
-
-        MoleReactor(PlayerSim* const player, const Ptr<Mole>& mole) :
-            player_(player)
+        friend class ServiceSim;
+        TravelNetworkReactor(ServiceSim* const serviceSim, const Ptr<TravelNetwork>& tn) :
+            serviceSim_(serviceSim)
         {
-            notifierIs(mole);
+            notifierIs(tn);
         }
-
-
-        PlayerSim* const player_;
-
+        ServiceSim* const serviceSim_; // weak pointer to prevent cycles
     };
 
 
-    Ptr<MoleReactor> reactor_;
-    U64 attempts_;
-    U64 hits_;
+    Ptr<TravelNetworkReactor> travelNetworkReactor_;
+    vector<Ptr<Vehicle>> availableVehicles_;
+    queue<Ptr<Trip>> waitingTrips_;
 
-
-    PlayerSim(const Ptr<Mole>& mole) :
-        reactor_(new MoleReactor(this, mole)),
-        attempts_(0),
-        hits_(0)
+    ServiceSim(const Ptr<TravelNetwork>& tn) :
+        travelNetworkReactor_(new TravelNetworkReactor(this, tn))
     {
         // Nothing else to do.
     }
 
 };
-
 /**
- * Main program creates a mole, mole simuulation, and player simulation, and
- * then runs the simulation for a fixed period of time (e.g., 2 minutes).
+ * Main program creates a travel network, service simulation, and trip request simulation, and
+ * then runs the simulation for a fixed period of time.
  */
 int main(int argc, char *argv[]) {
     const auto mgr = SequentialManager::instance();
     const auto startTime = time(SystemTime::now());
     mgr->nowIs(startTime);
 
-    const auto mole = Mole::instanceNew();
-    const auto molesim = MoleSim::instanceNew(mgr, mole);
-    const auto playersim = PlayerSim::instanceNew(mgr, mole);
+    logEntryNew(startTime, "Setting up network");
+    const Ptr<TravelNetwork> tn1 = setupNetwork("tn1");
+    const Ptr<ServiceSim> serviceSim = ServiceSim::instanceNew(mgr, tn1);
+    const Ptr<TripRequesterSim> tripRequesterSim = TripRequesterSim::instanceNew(mgr, tn1);
 
     logEntryNew(startTime, "starting");
     constexpr auto minutes = 60;
-    mgr->nowIs(startTime + 2 * minutes);
+    mgr->nowIs(startTime + 1 * minutes);
 
-    molesim->activityDel();
-    playersim->activityDel();
+    tripRequesterSim->activityDel();
+    serviceSim->activityDel();
 
-    std::cout << "Player score: ";
-    std::cout << playersim->hits() << "/" << playersim->attempts() << std::endl;
+    // std::cout << "Trip Statistics: ";
+    // cout << "# Trips: " << stats->numTrips() << endl;
+    // cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    // cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    // cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
 
     return 0;
 }

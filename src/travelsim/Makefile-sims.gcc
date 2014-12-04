@@ -1,0 +1,15 @@
+SRC=../src
+CPPFLAGS = -I$(SRC)
+CXX = g++
+CXXFLAGS = \
+    -g -std=c++11 \
+    -Wall \
+    -Wno-unused-function
+
+client1: always
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -o travelsim1 $(SRC)/travelsim/travelsim1.cxx
+
+clean:
+	rm -f travelsim1 *.o *~
+
+always:

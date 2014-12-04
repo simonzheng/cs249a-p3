@@ -42,6 +42,10 @@ protected:
         // Nothing else to do.
     }
 
+    void activityIs(const Ptr<Activity>& activity) {
+        activity_ = activity;
+    }
+
 };
 
 #endif

@@ -75,23 +75,11 @@ using std::endl;
 //     return 0;
 // }
 
-
-void locationNew(
-    const Ptr<TravelNetwork>& tn, const string& name, const string& spec
-) {
-    Ptr<Location> location;
-    if (spec == "Residence") {
-        location = Residence::instanceNew(name);
-    } else if (spec == "Airport") {
-        location = Airport::instanceNew(name);
-    }
-    tn->locationNew(location);
-}
-
 void segmentNew(
     const Ptr<TravelNetwork>& tn, const string& name, const string& spec, 
     const string& source, const string& dest, const double length
 ) {
+    // const auto seg = manager->instanceNew(name, spec);
     Ptr<Segment> seg;
     if (spec == "Flight") {
         seg = Flight::instanceNew(name);
@@ -102,30 +90,21 @@ void segmentNew(
     seg->sourceIs(tn->location(source));
     seg->destinationIs(tn->location(dest));
     seg->lengthIs(length);
-}
-
-void vehicleNew(
-    const Ptr<TravelNetwork>& tn, const string& name, const string& spec, 
-    const unsigned int speed, const unsigned int capacity, const double cost, const string locationName
-) {
-    Ptr<Vehicle> vehicle;
-    if (spec == "Airplane") {
-        vehicle = Airplane::instanceNew(name);
-    } else if (spec == "Car") {
-        vehicle = Car::instanceNew(name);
-    }
-    tn->vehicleNew(vehicle);
-    vehicle->speedIs(speed);
-    vehicle->capacityIs(capacity);
-    vehicle->costIs(cost);
-    vehicle->locationIs(tn->location(locationName));
+    
 }
 
 void tripNew(
     const Ptr<TravelNetwork>& tn, const string& name,
     const string& source, const string& dest, const size_t numTravelers
 ) {
+    // const auto seg = manager->instanceNew(name, spec);
     Ptr<Trip> trip = Trip::instanceNew(name);
+    
+    // if (spec == "Flight") {
+    //     seg = Flight::instanceNew(name);
+    // } else if (spec == "Road") {
+    //     seg = Road::instanceNew(name);
+    // }
     tn->tripNew(trip);
     trip->startLocationIs(tn->location(source));
     trip->endLocationIs(tn->location(dest));
@@ -135,14 +114,33 @@ void tripNew(
 
 int main(const int argc, const char* const argv[]) {
     const auto tn1 = TravelNetwork::instanceNew("tn1");
-    locationNew(tn1, "stanford1", "Residence");
-    locationNew(tn1, "menlopark1", "Residence");
 
-    locationNew(tn1, "sfo1", "Airport");
-    locationNew(tn1, "lax1", "Airport");
+    Ptr<Airplane> plane1 = Airplane::instanceNew("plane1");
+    tn1->vehicleNew(plane1);
 
-    vehicleNew(tn1, "plane1", "Airplane", 500, 200, 40, "stanford1");
-    vehicleNew(tn1, "car1", "Car", 70, 5, 0.75, "stanford1");
+    plane1->speedIs(500);
+    plane1->capacityIs(200);
+    plane1->costIs(40);
+
+    Ptr<Car> car1 = Car::instanceNew("car1");
+    tn1->vehicleNew(car1);
+
+    car1->speedIs(70);
+    car1->capacityIs(5);
+    car1->costIs(0.75);
+
+    // const auto residence = manager->instanceNew("stanford", "Residence");
+    Ptr<Residence> stanford1 = Residence::instanceNew("stanford1");
+    tn1->locationNew(stanford1);
+
+    Ptr<Residence> menlopark1 = Residence::instanceNew("menlopark1");
+    tn1->locationNew(menlopark1);
+
+    Ptr<Airport> sfo1 = Airport::instanceNew("sfo1");
+    tn1->locationNew(sfo1);
+
+    Ptr<Airport> lax1 = Airport::instanceNew("lax1");
+    tn1->locationNew(lax1);
     // tn1->locationDel("lax1");
     
     segmentNew(tn1, "carSeg1", "Road", "stanford1", "sfo1", 20);
@@ -185,44 +183,44 @@ int main(const int argc, const char* const argv[]) {
     const auto trip1 = tn1->trip(tripName1);
     const auto trip2 = tn1->trip(tripName2);
     cout << "# Trips: " << stats->numTrips() << endl;
-    cout << "# Pickups: " << stats->numPickups() << endl;
-    cout << "# droppedOff Trips: " << stats->numCompletedTrips() << endl;
-    cout << "average wait time of Pickups: " << stats->averageWaitTime() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
     
-    trip1->statusIs(Trip::goingToPickup);
-    cout << "**Trip1 set to goingToPickup**" << endl;
+    trip1->statusIs(Trip::inProgress);
+    cout << "**Trip1 set to inProgress**" << endl;
     cout << "# Trips: " << stats->numTrips() << endl;
-    cout << "# Pickups: " << stats->numPickups() << endl;
-    cout << "# droppedOff Trips: " << stats->numCompletedTrips() << endl;
-    cout << "average wait time of Pickups: " << stats->averageWaitTime() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
 
-    trip2->statusIs(Trip::goingToPickup);
-    cout << "**Trip2 set to goingToPickup**" << endl;
+    trip2->statusIs(Trip::inProgress);
+    cout << "**Trip2 set to inProgress**" << endl;
     cout << "# Trips: " << stats->numTrips() << endl;
-    cout << "# Pickups: " << stats->numPickups() << endl;
-    cout << "# droppedOff Trips: " << stats->numCompletedTrips() << endl;
-    cout << "average wait time of Pickups: " << stats->averageWaitTime() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
 
-    trip1->statusIs(Trip::droppedOff);
-    cout << "**Trip1 set to droppedOff**" << endl;
+    trip1->statusIs(Trip::completed);
+    cout << "**Trip1 set to completed**" << endl;
     cout << "# Trips: " << stats->numTrips() << endl;
-    cout << "# Pickups: " << stats->numPickups() << endl;
-    cout << "# droppedOff Trips: " << stats->numCompletedTrips() << endl;
-    cout << "average wait time of Pickups: " << stats->averageWaitTime() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
 
     tn1->tripDel(tripName1);
     cout << "**Trip1 deleted**" << endl;
     cout << "# Trips: " << stats->numTrips() << endl;
-    cout << "# Pickups: " << stats->numPickups() << endl;
-    cout << "# droppedOff Trips: " << stats->numCompletedTrips() << endl;
-    cout << "average wait time of Pickups: " << stats->averageWaitTime() << endl;
+    cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
+    cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
+    cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
 
     // Error checking code
 
     // car1->costIs(-0.75); // should throw RangeException
     // car1->capacityIs(-5); // should throw RangeException but doesn't work right now
     
-    // trip1->statusIs(Trip::goingToPickup); // shouldn't let you change status back
+    // trip1->statusIs(Trip::inProgress); // shouldn't let you change status back
 
     // Try to connect two networks
     // const auto tn2 = TravelNetwork::instanceNew("tn2");

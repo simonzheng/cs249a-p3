@@ -248,6 +248,30 @@ private:
 
 
 _noinline
+char* timeAsBuffer(char* const buffer, char* const end, const DateTime& d) {
+    if (buffer + 9 >= end) {
+        return null;
+    }
+
+    const auto hh = d.hour().value();
+    const auto mm = d.minute().value();
+    const auto ss = d.second().value();
+
+    char* p = buffer;
+    *p++ = '0' + char(hh / 10);
+    *p++ = '0' + char(hh % 10);
+    *p++ = ':';
+    *p++ = '0' + char(mm / 10);
+    *p++ = '0' + char(mm % 10);
+    *p++ = ':';
+    *p++ = '0' + char(ss / 10);
+    *p++ = '0' + char(ss % 10);
+
+    *p = '\0';
+    return p;
+}
+
+_noinline
 string timeAsString(const DateTime& d) {
     const auto hh = d.hour().value();
     const auto mm = d.minute().value();
@@ -303,9 +327,26 @@ string dateTimeAsString(const DateTime& d) {
     return buffer;
 }
 
-
+_noinline
 string timeAsString(const Time sec) {
     return timeAsString(DateTime(sec));
+}
+
+_noinline
+string timeMilliAsString(const DateTime& d) {
+    char* const buffer = new char[32];
+    char* p = timeAsBuffer(buffer, buffer + 32, d);
+
+    const auto ms = d.millisecond().value();
+
+    *p++ = '.';
+    const auto hs = ms % 100;
+    *p++ = '0' + char(ms / 100);
+    *p++ = '0' + char(hs / 10);
+    *p++ = '0' + char(hs % 10);
+
+    *p = 0;
+    return buffer;
 }
 
 string dateTimeAsString(const Time sec) {

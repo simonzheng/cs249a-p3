@@ -19,6 +19,8 @@ using fwk::NamedInterface;
 using fwk::NotifierLib::post;
 using fwk::Ptr;
 using fwk::Ordinal;
+using fwk::Time;
+
 
 using std::unordered_map;
 using std::set;
@@ -428,7 +430,7 @@ protected:
 ******************************************************************************/
 class Trip : public NamedInterface {
 public:
-    enum Status { notInProgress, inProgress, completed};
+    enum Status { waitingForVehicle, goingToPickup, goingToDestination, droppedOff};
 
     class Notifiee : public BaseNotifiee<Trip> {
     public:
@@ -519,7 +521,7 @@ public:
     void statusIs(const Status status) {
         if (status > status_) {
             status_ = status;
-            // TODO: do something with assigning a wait time if it's set to inProgress in onStatus
+            // TODO: do something with assigning a wait time if it's set to goingToPickup in onStatus
             post(this, &Notifiee::onStatus);
         } else {
             string errorMessage = "Error in statusIs(): Trip's current status is already farther along than the new status to be assigned!";
@@ -529,10 +531,10 @@ public:
     }
 
     // waitTime
-    unsigned int waitTime() {
+    Time waitTime() {
         return waitTime_;
     }
-    void waitTimeIs(const unsigned int waitTime) {
+    void waitTimeIs(const Time waitTime) {
         waitTime_ = waitTime;
     }
 
@@ -549,9 +551,9 @@ protected:
     Ptr<Location> endLocation_ = null;
     Passengers numTravelers_ = 0;
     Status status_;
-    unsigned int waitTime_ = 0; // TODO: change all instances of cumWaitTime or waitTime to use a diff unit, also find a good sentinal value to say that waitTime hasn't been defined yet
+    Time waitTime_ = 0; // Confirmed with Prof. Linton on 12/3/2014 that we could set this to 0 and return it in the accessor
 
-    explicit Trip(const string& name) : NamedInterface(name), status_(notInProgress)
+    explicit Trip(const string& name) : NamedInterface(name), status_(waitingForVehicle)
     {
         // Nothing else to do.
     }
@@ -1056,12 +1058,12 @@ protected:
 
         /** Notification that the trip's status changed. */
         void onStatus() {
-            if (notifier()->status() == Trip::completed) {
+            if (notifier()->status() == Trip::droppedOff) {
                 stats_->numCompletedTripsIncr();
             };
-            if (notifier()->status() == Trip::inProgress) {
-                stats_->numInProgressTripsIncr();
-                stats_->cumWaitTimeIncr(notifier()->waitTime());
+            if (notifier()->status() == Trip::goingToDestination) {
+                stats_->numPickupsIncr();
+                stats_->cumWaitTimeIncr(notifier()->waitTime()); // TODO: Make sure this takes in the appropriate waitTime
             }
         }
 
@@ -1075,8 +1077,8 @@ protected:
     unsigned int numRoads_ = 0;
     unsigned int numTrips_ = 0;
     unsigned int numCompletedTrips_ = 0;
-    unsigned int numInProgressTrips_ = 0;
-    unsigned int cumWaitTime_ = 0;
+    unsigned int numPickups_ = 0;
+    Time cumWaitTime_ = 0;
 
     Ptr<TravelNetworkTracker> travelNetworkTracker_;
     typedef unordered_map< string, Ptr<TripTracker> > TripTrackerMap;
@@ -1135,17 +1137,17 @@ protected:
         numCompletedTrips_--;
     }
 
-    void numInProgressTripsIncr() {
-        numInProgressTrips_++;
+    void numPickupsIncr() {
+        numPickups_++;
     }
-    void numInProgressTripsDecr() {
-        numInProgressTrips_--;
+    void numPickupsDecr() {
+        numPickups_--;
     }
 
-    void cumWaitTimeIncr(const unsigned int waitTime) {
+    void cumWaitTimeIncr(const Time waitTime) {
         cumWaitTime_ += waitTime;
     }
-    void cumWaitTimeDecr(const unsigned int waitTime) {
+    void cumWaitTimeDecr(const Time waitTime) {
         cumWaitTime_ -= waitTime;
     }
 
@@ -1190,18 +1192,18 @@ public:
         return numTrips_;
     }
 
-    unsigned int numInProgressTrips() {
-        return numInProgressTrips_; // TODO: check if this should be numInProgressTrips or (numInProgressTrips - numCompletedTrips)
+    unsigned int numPickups() {
+        return numPickups_;
     }
 
     unsigned int numCompletedTrips() {
         return numCompletedTrips_;
     }
 
-    double averageWaitTime() { // TODO: check what type to return
-        if (numInProgressTrips_ == 0) return 0;
+    Time averageWaitTime() {
+        if (numPickups_ == 0) return 0;
         
-        return double(cumWaitTime_) / numInProgressTrips_;
+        return cumWaitTime_.value() / numPickups_;
     }
 };
 
