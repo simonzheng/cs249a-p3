@@ -1,6 +1,16 @@
 user: szheng0 (Zheng, Simon)
-# Note, discussed implementation tradeoffs and output with Edric Kyauk, Kevin Heh, Ranajay Sen, and Anh Truong. No code was shared.
+
+# Extensions: 
+# 1. LRU cache to cache the shortest time paths between two locations and updating the cache when the network changes. The vehicle always pick a shortest time path on each trip.
+# 2. I recorded overall trip time for individual trips and added average overall trip time as a statistic that I track.
+# 3. Build and read simulations from an input text file.
+#
+# Notes to Grader: 
+# ServiceSim: I asked Prof. Linton if serviceSim should be a Sim class and he said that although it doesn't currently use the onStatus() and responds to changes in the TravelNetwork, rather than changes in Activities, we can leave it this way and trampoline from its internal TravelNetwork::Notifiee in case we do decide to have more simulator-like functionality in the future. Furthermore, he also states in this 
+
+# Note, discussed implementation tradeoffs and output with Ranajay Sen and Anh Truong. No code was shared.
 # My code is split across the files as follows:
 # client1.cxx -- has the testing code from p2
 # TravelInstanceManager -- has the TravelInstanceManager code with all of the ___Instance code from p2. Not used in this submission of p3.
 # TravelNetwork -- has the actual entity class definitions and the TravelNetwork class definition. This has been extended from p2 to fit the requirements of p3 detailed in the assignment handout: http://web.stanford.edu/class/cs249a/asgn3.html
+# 

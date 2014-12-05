@@ -20,6 +20,9 @@ using fwk::NotifierLib::post;
 using fwk::Ptr;
 using fwk::Ordinal;
 using fwk::Time;
+using std::pair;
+using std::make_pair;
+using std::numeric_limits;
 
 
 using std::unordered_map;
@@ -428,141 +431,6 @@ protected:
 /******************************************************************************
 *******************************************************************************
 ******************************************************************************/
-class Trip : public NamedInterface {
-public:
-    enum Status { waitingForVehicle, goingToPickup, goingToDestination, droppedOff};
-
-    class Notifiee : public BaseNotifiee<Trip> {
-    public:
-        void notifierIs(const Ptr<Trip>& trip) {
-            connect(trip, this);
-        }
-
-        virtual void onStatus() { }
-    };
-
-protected:
-    typedef std::list<Notifiee*> NotifieeList;
-
-public:
-
-    static Ptr<Trip> instanceNew(const string& name) {
-        return new Trip(name);
-    }
-
-    // Remove the copy and assignment constructors
-    Trip(const Trip&) = delete;
-    void operator =(const Trip&) = delete;
-
-    // Source
-    Ptr<Location> startLocation() {
-        return startLocation_;
-    }
-
-    void startLocationIs(const Ptr<Location>& startLocation) {
-        if (startLocation != null && startLocation->travelNetwork() != travelNetwork_) {
-            string errorMessage = "Error in startLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
-            cerr << errorMessage << endl;
-            throw fwk::DifferentNetworkException(errorMessage);
-        }
-        
-        // // NTS: This is the segment logic to replace the current pointer.
-        // if (startLocation_ != null) {
-        //     // Removing this startLocation from existing startLocation Location's trip list
-        //     int tripIndexInSourceList = 0; // 
-        //     for (auto it = startLocation_->tripIter(); it != startLocation_->tripIterEnd(); ++it) {
-        //         if ((*it)->name() == this->name()) {
-        //             startLocation_->tripDel(tripIndexInSourceList);
-        //         }
-        //     }
-        // }
-        // if (startLocation != null) { // Don't assign the startLocation's trip to be this if startLocation is null
-        //     // Connect new startLocation Location's Trip
-        //     startLocation->tripNew(this);
-        // }
-        startLocation_ = startLocation;
-    }
-
-    // Destination
-    Ptr<Location> endLocation() {
-        return endLocation_;
-    }
-
-    void endLocationIs(const Ptr<Location>& endLocation) {
-        if (endLocation != null && endLocation->travelNetwork() != travelNetwork_) {
-            string errorMessage = "Error in endLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
-            cerr << errorMessage << endl;
-            throw fwk::DifferentNetworkException(errorMessage);
-        }
-        endLocation_ = endLocation;
-    }
-
-    // Length
-    Passengers numTravelers() {
-        return numTravelers_;
-    }
-
-    void numTravelersIs(const Passengers numTravelers) {
-        numTravelers_ = numTravelers;
-    }
-
-    // travelNetwork
-    Ptr<TravelNetwork> travelNetwork() {
-        return travelNetwork_;
-    }
-    void travelNetworkIs(const Ptr<TravelNetwork>& travelNetwork) {
-        travelNetwork_ = travelNetwork;
-    }
-
-    // status
-    Status status() {
-        return status_;
-    }
-    void statusIs(const Status status) {
-        if (status > status_) {
-            status_ = status;
-            // TODO: do something with assigning a wait time if it's set to goingToPickup in onStatus
-            post(this, &Notifiee::onStatus);
-        } else {
-            string errorMessage = "Error in statusIs(): Trip's current status is already farther along than the new status to be assigned!";
-            cerr << errorMessage << endl;
-            throw fwk::InvalidArgumentExeption(errorMessage);
-        }
-    }
-
-    // waitTime
-    Time waitTime() {
-        return waitTime_;
-    }
-    void waitTimeIs(const Time waitTime) {
-        waitTime_ = waitTime;
-    }
-
-    // Notifiees
-    NotifieeList& notifiees() {
-        return notifiees_;
-    }
-
-
-protected:
-    NotifieeList notifiees_;
-    Ptr<TravelNetwork> travelNetwork_ = null;
-    Ptr<Location> startLocation_ = null;
-    Ptr<Location> endLocation_ = null;
-    Passengers numTravelers_ = 0;
-    Status status_;
-    Time waitTime_ = 0; // Confirmed with Prof. Linton on 12/3/2014 that we could set this to 0 and return it in the accessor
-
-    explicit Trip(const string& name) : NamedInterface(name), status_(waitingForVehicle)
-    {
-        // Nothing else to do.
-    }
-    ~Trip() { }
-};
-
-/******************************************************************************
-*******************************************************************************
-******************************************************************************/
 
 // A vehicle is a mode of transportation such as a plane or car. A vehicle has 
 // attributes specifying the mean speed traveling along a segment, in miles per 
@@ -689,6 +557,150 @@ protected:
     {
         // Nothing else to do.
     }
+};
+
+
+/******************************************************************************
+*******************************************************************************
+******************************************************************************/
+class Trip : public NamedInterface {
+public:
+    enum Status { waitingForVehicle, goingToPickup, goingToDropoff, droppedOff};
+
+    class Notifiee : public BaseNotifiee<Trip> {
+    public:
+        void notifierIs(const Ptr<Trip>& trip) {
+            connect(trip, this);
+        }
+
+        virtual void onStatus() { }
+    };
+
+protected:
+    typedef std::list<Notifiee*> NotifieeList;
+
+public:
+
+    static Ptr<Trip> instanceNew(const string& name) {
+        return new Trip(name);
+    }
+
+    // Remove the copy and assignment constructors
+    Trip(const Trip&) = delete;
+    void operator =(const Trip&) = delete;
+
+    // Source
+    Ptr<Location> startLocation() {
+        return startLocation_;
+    }
+
+    void startLocationIs(const Ptr<Location>& startLocation) {
+        // if (startLocation != null && startLocation->travelNetwork() != travelNetwork_) {
+        //     string errorMessage = "Error in startLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
+        //     cerr << errorMessage << endl;
+        //     throw fwk::DifferentNetworkException(errorMessage);
+        // }
+        startLocation_ = startLocation;
+    }
+
+    // Destination
+    Ptr<Location> endLocation() {
+        return endLocation_;
+    }
+
+    void endLocationIs(const Ptr<Location>& endLocation) {
+        // if (endLocation != null && endLocation->travelNetwork() != travelNetwork_) {
+        //     string errorMessage = "Error in endLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
+        //     cerr << errorMessage << endl;
+        //     throw fwk::DifferentNetworkException(errorMessage);
+        // }
+        endLocation_ = endLocation;
+    }
+
+    Ptr<Vehicle> vehicle() {
+        return vehicle_;
+    }
+
+    void vehicleIs(const Ptr<Vehicle>& vehicle) {
+        if (vehicle != null && vehicle->travelNetwork() != travelNetwork_) {
+            string errorMessage = "Error in vehicleIs(): Trip's vehicle and endVehicle should be in same travelNetwork as trip!";
+            cerr << errorMessage << endl;
+            throw fwk::DifferentNetworkException(errorMessage);
+        }
+        vehicle_ = vehicle;
+    }
+
+    // Length
+    Passengers numTravelers() {
+        return numTravelers_;
+    }
+
+    void numTravelersIs(const Passengers numTravelers) {
+        numTravelers_ = numTravelers;
+    }
+
+    // travelNetwork
+    Ptr<TravelNetwork> travelNetwork() {
+        return travelNetwork_;
+    }
+    void travelNetworkIs(const Ptr<TravelNetwork>& travelNetwork) {
+        travelNetwork_ = travelNetwork;
+    }
+
+    // status
+    Status status() {
+        return status_;
+    }
+    void statusIs(const Status status) {
+        if (status > status_) {
+            status_ = status;
+            // TODO: do something with assigning a wait time if it's set to goingToPickup in onStatus
+            post(this, &Notifiee::onStatus);
+        } else {
+            string errorMessage = "Error in statusIs(): Trip's current status is already farther along than the new status to be assigned!";
+            cerr << errorMessage << endl;
+            throw fwk::InvalidArgumentExeption(errorMessage);
+        }
+    }
+
+    // waitTime
+    Time waitTime() {
+        return waitTime_;
+    }
+    void waitTimeIs(const Time waitTime) {
+        waitTime_ = waitTime;
+    }
+
+    // path
+    vector<Ptr<Segment>> path() {
+        return path_;
+    }
+    void pathIs(vector<Ptr<Segment>> path) {
+        path_ = path;
+    }
+
+    // Notifiees
+    NotifieeList& notifiees() {
+        return notifiees_;
+    }
+
+
+protected:
+    NotifieeList notifiees_;
+    Ptr<TravelNetwork> travelNetwork_ = null;
+    Ptr<Location> startLocation_ = null;
+    Ptr<Location> endLocation_ = null;
+    Ptr<Vehicle> vehicle_ = null;
+    vector<Ptr<Segment>> path_;
+    Passengers numTravelers_ = 0;
+    Status status_;
+    Time waitTime_ = 0; // Confirmed with Prof. Linton on 12/3/2014 that we could set this to 0 and return it in the accessor
+
+    explicit Trip(const string& name) : NamedInterface(name), status_(waitingForVehicle)
+    {
+        // Nothing else to do.
+    }
+    ~Trip() { }
 };
 
 /******************************************************************************
@@ -1065,7 +1077,7 @@ protected:
             if (notifier()->status() == Trip::droppedOff) {
                 stats_->numCompletedTripsIncr();
             };
-            if (notifier()->status() == Trip::goingToDestination) {
+            if (notifier()->status() == Trip::goingToDropoff) {
                 stats_->numPickupsIncr();
                 stats_->cumWaitTimeIncr(notifier()->waitTime()); // TODO: Make sure this takes in the appropriate waitTime
             }
@@ -1229,6 +1241,8 @@ public:
 protected:
     typedef std::list<Notifiee*> NotifieeList;
     NotifieeList notifiees_;
+    Ptr<TravelNetwork> travelNetwork_;
+
 
     explicit Conn(const string& name) : NamedInterface(name)
     {
@@ -1237,9 +1251,8 @@ protected:
     ~Conn() {
 
     }
-    Ptr<TravelNetwork> travelNetwork_;
 
-    void recDepthFirstSearch(Ptr<Location> & currLocation, Miles distanceSoFar, Miles maxDistance, string pathSoFar, set < string > visitedLocations, vector<string>& pathsWithinMaxDistance) {
+    void recDFSWithinMaxDistance(Ptr<Location> & currLocation, Miles distanceSoFar, Miles maxDistance, string pathSoFar, set < string > visitedLocations, vector<string>& pathsWithinMaxDistance) {
         visitedLocations.insert(currLocation->name());
         for (auto it = currLocation->segmentIter() ; it != currLocation->segmentIterEnd(); ++it) {
             Ptr<Segment> currSegment = *it;
@@ -1257,8 +1270,49 @@ protected:
                 Miles newDistance = (distanceSoFar + currSegment->length());
                 string newPathSoFar = (pathSoFar + "(" + currSegment->name() + ":" + std::to_string(currSegment->length().value()) + ") " + nextLocation->name());
                 pathsWithinMaxDistance.push_back(newPathSoFar);
-                recDepthFirstSearch(nextLocation, newDistance, maxDistance, newPathSoFar, visitedLocations, pathsWithinMaxDistance);
+                recDFSWithinMaxDistance(nextLocation, newDistance, maxDistance, newPathSoFar, visitedLocations, pathsWithinMaxDistance);
             }
+        }
+    }
+
+    void recDFSForShortestPath(const Ptr<Location> & currLocation, const Ptr<Location> & destination,
+                            Miles distanceSoFar, vector<Ptr<Segment>>& pathSoFar, 
+                            unordered_map<string, double>& visitedLocationDistances,
+                            unordered_map<string, vector<Ptr<Segment>>>& visitedLocationShortestPaths) {
+        visitedLocationDistances[currLocation->name()] = distanceSoFar.value();
+        visitedLocationShortestPaths[currLocation->name()] = pathSoFar;
+
+        for (auto it = currLocation->segmentIter(); it != currLocation->segmentIterEnd(); ++it) {
+            Ptr<Segment> currSegment = *it;
+            if (currSegment->source() == null || currSegment->destination() == null) {
+                // Skip segment if we have an invalid destination (perhaps from failed initialization)
+                continue;
+            }
+
+            Ptr<Location> nextLocation = currSegment->destination();
+            if (visitedLocationDistances.find(nextLocation->name()) == visitedLocationDistances.end()) {
+                visitedLocationDistances[nextLocation->name()] = numeric_limits<double>::max();
+            }
+            // cout << currLocation->name() << "->" << nextLocation->name() << " via " << currSegment->name();
+            Miles newDistance = (distanceSoFar + currSegment->length());
+            if (newDistance.value() < visitedLocationDistances[nextLocation->name()]) {
+                if (visitedLocationDistances.find(destination->name()) != visitedLocationDistances.end() &&
+                    newDistance >= visitedLocationDistances[destination->name()]) {
+                    // Skip this destination if you've already visited this node in this path
+                    // cout << " [Discarded this segment we're past the limit for the goal because distanceSoFar " << newDistance.value() << " >= " << visitedLocationDistances[destination->name()] << " ] " << endl;
+                    continue;
+                }
+                visitedLocationDistances[nextLocation->name()] = newDistance.value();
+                // cout << " [Set the distance to " << newDistance.value() << "]" << endl;
+                vector<Ptr<Segment>> newPathSoFar = pathSoFar;
+                newPathSoFar.push_back(currSegment);
+                visitedLocationShortestPaths[nextLocation->name()] = newPathSoFar;
+
+                recDFSForShortestPath(nextLocation, destination, newDistance, newPathSoFar, visitedLocationDistances, visitedLocationShortestPaths);
+            } 
+            // else {
+            //     cout << " [Discarded this segment because newDistance " << newDistance.value() << " >= old value of this nextLocation " << visitedLocationDistances[nextLocation->name()] << " ] " << endl;
+            // }
         }
     }
 
@@ -1282,7 +1336,7 @@ public:
             set < string > visitedLocations;
             string pathSoFar = startLocation->name();
             Miles startingDistance = 0;
-            recDepthFirstSearch(startLocation, startingDistance, maxDistance, pathSoFar, visitedLocations, resultingValidPaths);
+            recDFSWithinMaxDistance(startLocation, startingDistance, maxDistance, pathSoFar, visitedLocations, resultingValidPaths);
         } else {
             cerr << "Could not find the starting location (" << startLocName << "). Returning empty string as results." << endl;
             return "";
@@ -1293,6 +1347,22 @@ public:
             results += (validPath + "\n");
         }
         return results;
+    }
+
+    pair<vector<Ptr<Segment>>, double> findShortestPath(const Ptr<Location>& source, const Ptr<Location>& destination) {
+        vector<Ptr<Segment>> currPath;
+        unordered_map<string, double> visitedLocationDistances;
+        unordered_map<string, vector<Ptr<Segment>>> visitedLocationShortestPaths;
+        recDFSForShortestPath( source, destination, 0, currPath, 
+                                visitedLocationDistances, visitedLocationShortestPaths);
+        vector<Ptr<Segment>> shortestPath = visitedLocationShortestPaths[destination->name()];
+        double shortestPathDistance = visitedLocationDistances[destination->name()];
+        
+        // cout << "Distance from " << source->name() << " to " << destination->name() << " is " << shortestPathDistance << ". Path is: " << endl;;
+        // for (unsigned int i = 0; i < shortestPath.size(); i++) {
+        //     cout << "\t" << shortestPath[i]->source()->name() << " -> " << shortestPath[i]->destination()->name() << " : " << shortestPath[i]->length().value() << "\n";
+        // }
+        return make_pair(shortestPath, shortestPathDistance);
     }
 
     // Notifiees

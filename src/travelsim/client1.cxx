@@ -215,7 +215,7 @@ int main(const int argc, const char* const argv[]) {
     cout << "# Trips: " << stats->numTrips() << endl;
     cout << "# Pickups: " << stats->numPickups() << endl;
     cout << "# droppedOff Trips: " << stats->numCompletedTrips() << endl;
-    cout << "average wait time of Pickups: " << stats->averageWaitTime() << endl;
+    cout << "average wait time (in minutes) of Pickups: " << stats->averageWaitTime() << endl;
 
     // Error checking code
 
