@@ -712,6 +712,8 @@ public:
         virtual void onSegmentDel(const Ptr<Segment>& segment) { }
         virtual void onTripNew(const Ptr<Trip>& trip) { }
         virtual void onTripDel(const Ptr<Trip>& trip) { }
+        virtual void onVehicleNew(const Ptr<Vehicle>& vehicle) { }
+        virtual void onVehicleDel(const Ptr<Vehicle>& vehicle) { }
     };
 
 protected:
@@ -892,6 +894,7 @@ public:
             throw fwk::NameInUseException(name);
         }
         vehicle->travelNetworkIs(this);
+        post(this, &Notifiee::onVehicleNew, vehicle);
     }
 
     Ptr<Vehicle> vehicleDel(const string& name) {
@@ -910,6 +913,7 @@ public:
         const auto next = vehicleMap_.erase(iter);
         vehicle->travelNetworkIs(null);
         vehicle->locationIs(null);
+        post(this, &Notifiee::onVehicleDel, vehicle);
         return next;
     }
 

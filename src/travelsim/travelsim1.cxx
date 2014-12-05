@@ -2,6 +2,7 @@
 #include <random>
 
 #include "TravelNetwork.h"
+#include <algorithm>
 
 using namespace fwk;
 
@@ -116,16 +117,15 @@ void tripNew(
 }
 
 
-static const Ptr<TravelNetwork> setupNetwork(string networkName) {
-    const Ptr<TravelNetwork> tn = TravelNetwork::instanceNew(networkName);
-    vehicleNew(tn, "plane1", "Airplane", 500, 200, 40, "stanford1");
-    vehicleNew(tn, "car1", "Car", 70, 5, 0.75, "stanford1");
-
+static const Ptr<TravelNetwork> setupNetwork(Ptr<TravelNetwork> tn) {
     locationNew(tn, "stanford1", "Residence");
     locationNew(tn, "menlopark1", "Residence");
-
     locationNew(tn, "sfo1", "Airport");
     locationNew(tn, "lax1", "Airport");
+
+    vehicleNew(tn, "plane1", "Airplane", 500, 200, 40, "sfo1");
+    vehicleNew(tn, "car1", "Car", 70, 5, 0.75, "stanford1");
+    
     return tn;
 }
 
@@ -225,7 +225,7 @@ public:
     }
 
     void onTravelNetworkTripNew(const Ptr<Trip>& trip) {
-        waitingTrips_.push(trip);
+        waitingTrips_.push_back(trip);
         if (availableVehicles_.size() > 0) {
             logEntryNew(notifier()->manager()->now(), trip->name() + ": ServiceSim will schedule the trip since there's at least one available car for: " + trip->name());
             scheduleTrip();
@@ -244,13 +244,34 @@ public:
         }
     }
 
+    void onTravelNetworkTripDel(const Ptr<Trip>& trip) {
+        logEntryNew(notifier()->manager()->now(), "ServiceSim checking if it should remove: " + trip->name());
+        const auto iter = find(waitingTrips_.begin(), waitingTrips_.end(), trip);
+        if (iter != waitingTrips_.end()) {
+            waitingTrips_.erase(iter);
+            logEntryNew(notifier()->manager()->now(), "Erased waiting trip from serviceSim: " + trip->name());
+        } else {
+            logEntryNew(notifier()->manager()->now(), "Not a waiting trip so no removal in serviceSim: " + trip->name());
+        }
+    }
+
+    void onTravelNetworkVehicleDel(const Ptr<Vehicle>& vehicle) {
+        logEntryNew(notifier()->manager()->now(), "ServiceSim checking if it should remove: " + vehicle->name());
+        const auto iter = find(availableVehicles_.begin(), availableVehicles_.end(), vehicle);
+        if (iter != availableVehicles_.end()) {
+            availableVehicles_.erase(iter);
+            logEntryNew(notifier()->manager()->now(), "Erased available vehicle from serviceSim: " + vehicle->name());
+        } else {
+            logEntryNew(notifier()->manager()->now(), "Not a available vehicle so no removal in serviceSim: " + vehicle->name());
+        }
+    }
+
 
 
 protected:
 
     void scheduleTrip() {
         logEntryNew(notifier()->manager()->now(), "Scheduling trip... [TODO]");
-
         // TODO: get nearest vehicle and create new tripSim, add activity to the manager, next time offset
         // const Ptr<TripSim> tripSim = TripSim::instanceNew(notifier()->manager(), trip);
         // logEntryNew(notifier()->manager()->now(), "New TripSim created after TripSim implemented");
@@ -289,9 +310,15 @@ protected:
         void onTripNew(const Ptr<Trip>& trip) {
             serviceSim_->onTravelNetworkTripNew(trip); //trampoline
         }
+        void onTripDel(const Ptr<Trip>& trip) {
+            serviceSim_->onTravelNetworkTripDel(trip); //trampoline
+        }
 
         void onVehicleNew(const Ptr<Vehicle>& vehicle) {
             serviceSim_->onTravelNetworkVehicleNew(vehicle); //trampoline
+        }
+        void onVehicleDel(const Ptr<Vehicle>& vehicle) {
+            serviceSim_->onTravelNetworkVehicleDel(vehicle); //trampoline
         }
     protected:
         friend class ServiceSim;
@@ -306,7 +333,7 @@ protected:
 
     Ptr<TravelNetworkReactor> travelNetworkReactor_;
     vector<Ptr<Vehicle>> availableVehicles_;
-    queue<Ptr<Trip>> waitingTrips_;
+    vector<Ptr<Trip>> waitingTrips_;
 
     ServiceSim(const Ptr<TravelNetwork>& tn) :
         travelNetworkReactor_(new TravelNetworkReactor(this, tn))
@@ -323,24 +350,25 @@ int main(int argc, char *argv[]) {
     const auto mgr = SequentialManager::instance();
     const auto startTime = time(SystemTime::now());
     mgr->nowIs(startTime);
-
-    logEntryNew(startTime, "Setting up network");
-    const Ptr<TravelNetwork> tn1 = setupNetwork("tn1");
+    
+    const Ptr<TravelNetwork> tn1 = TravelNetwork::instanceNew("tn1");
     const Ptr<ServiceSim> serviceSim = ServiceSim::instanceNew(mgr, tn1);
-    const Ptr<TripRequesterSim> tripRequesterSim = TripRequesterSim::instanceNew(mgr, tn1);
+    logEntryNew(startTime, "Setting up network");
+    setupNetwork(tn1);
+    // const Ptr<TripRequesterSim> tripRequesterSim = TripRequesterSim::instanceNew(mgr, tn1);
 
-    logEntryNew(startTime, "starting");
+    logEntryNew(startTime, "*** [starting] ***");
     constexpr auto minutes = 60;
-    mgr->nowIs(startTime + 1 * minutes);
+    mgr->nowIs(startTime + 0.5 * minutes);
 
     tripRequesterSim->activityDel();
     serviceSim->activityDel();
 
-    // std::cout << "Trip Statistics: ";
-    // cout << "# Trips: " << stats->numTrips() << endl;
-    // cout << "# inProgress Trips: " << stats->numInProgressTrips() << endl;
-    // cout << "# completed Trips: " << stats->numCompletedTrips() << endl;
-    // cout << "average wait time of inProgress Trips: " << stats->averageWaitTime() << endl;
+    std::cout << "Trip Statistics: ";
+    cout << "numTrips: " << tn1->stats("stats")->numTrips() << endl;
+    cout << "numPickups: " << tn1->stats("stats")->numPickups() << endl;
+    cout << "numCompletedTrips: " << tn1->stats("stats")->numCompletedTrips() << endl;
+    cout << "averageWaitTime: " << tn1->stats("stats")->averageWaitTime() << endl;
 
     return 0;
 }
