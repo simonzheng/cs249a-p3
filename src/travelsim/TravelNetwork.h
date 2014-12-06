@@ -596,11 +596,6 @@ public:
     }
 
     void startLocationIs(const Ptr<Location>& startLocation) {
-        // if (startLocation != null && startLocation->travelNetwork() != travelNetwork_) {
-        //     string errorMessage = "Error in startLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
-        //     cerr << errorMessage << endl;
-        //     throw fwk::DifferentNetworkException(errorMessage);
-        // }
         startLocation_ = startLocation;
     }
 
@@ -610,11 +605,6 @@ public:
     }
 
     void endLocationIs(const Ptr<Location>& endLocation) {
-        // if (endLocation != null && endLocation->travelNetwork() != travelNetwork_) {
-        //     string errorMessage = "Error in endLocationIs(): Trip's startLocation and endLocation should be in same travelNetwork as trip!";
-        //     cerr << errorMessage << endl;
-        //     throw fwk::DifferentNetworkException(errorMessage);
-        // }
         endLocation_ = endLocation;
     }
 
@@ -655,7 +645,6 @@ public:
     void statusIs(const Status status) {
         if (status > status_) {
             status_ = status;
-            // TODO: do something with assigning a wait time if it's set to goingToPickup in onStatus
             post(this, &Notifiee::onStatus);
         } else {
             string errorMessage = "Error in statusIs(): Trip's current status is already farther along than the new status to be assigned!";
@@ -1215,12 +1204,62 @@ public:
     };
 
 protected:
+    /********************************************************
+    * Nest TravelNetworkTracker in Conn                    *
+    ********************************************************/
+    class TravelNetworkTracker : public TravelNetwork::Notifiee {
+    public:
+        static Ptr<TravelNetworkTracker> instanceNew(const Ptr<TravelNetwork>& tn) { 
+            const Ptr<TravelNetworkTracker> tnt = new TravelNetworkTracker(); 
+            tnt->notifierIs(tn);
+            return tnt;
+        }
+
+        /********************************************************
+        * Reactor Functions                                     *
+        ********************************************************/
+
+        /** Notification that a segment is added to the network. */
+        void onSegmentNew(const Ptr<Segment>& segment) {
+            // Check if segment is a Road
+            if (dynamic_cast<Road*>(segment.ptr()) != null) {
+                cout << "conn_->numRoads_++;" << endl; // TODO
+            }
+
+            // Check if segment is a Flight
+            if (dynamic_cast<Flight*>(segment.ptr()) != null) {
+                cout << "conn_->numFlights_++;" << endl; // TODO
+            }
+        }
+
+        /** Notification that a segment is removed from the network. */
+        void onSegmentDel(const Ptr<Segment>& segment) {
+            // Check if segment is a Road
+            if (dynamic_cast<Road*>(segment.ptr()) != null) {
+                cout << "conn_->numRoads_--;" << endl; // TODO
+            }
+
+            // Check if segment is a Flight
+            if (dynamic_cast<Flight*>(segment.ptr()) != null) {
+                cout << "conn_->numFlights_--;" << endl; // TODO
+            }
+        }
+        // We can make this public because it's only available to the conn_ class.
+        Ptr<Conn> conn_;
+    };
+
     typedef std::list<Notifiee*> NotifieeList;
     NotifieeList notifiees_;
     Ptr<TravelNetwork> travelNetwork_;
-    size_t cacheSize = 50;
+    size_t cacheSize = 20;
     Cache<string, pair<vector<Ptr<Segment>>,double>> cache_ = Cache<string, pair<vector<Ptr<Segment>>,double>>(cacheSize);
+    unsigned int numCacheHits_ = 0;
+    unsigned int numCacheChecks_ = 0;
+    bool startedAtLeastOneTrip = false; // Tracks whether we've ran our first trip so we can keep our candidate list of new segments and deleted segments
 
+    Ptr<TravelNetworkTracker> travelNetworkTracker_;
+    vector<Ptr<Segment>> newSegments_;
+    vector<Ptr<Segment>> deletedSegments_;
 
     explicit Conn(const string& name) : NamedInterface(name)
     {
@@ -1297,6 +1336,7 @@ public:
     static Ptr<Conn> instanceNew(string name, Ptr<TravelNetwork> tn) {
         Ptr<Conn> c = new Conn(name);
         c->travelNetwork_ = tn;
+        c->travelNetworkTracker_ = TravelNetworkTracker::instanceNew(tn);
         return c;
     }
 
@@ -1305,7 +1345,6 @@ public:
     void operator =(const Conn&) = delete;
 
     string processQuery(const string& startLocName, const Miles& maxDistance) {
-
         vector<string> resultingValidPaths;
         Ptr<Location> startLocation = travelNetwork_->location(startLocName);
 
@@ -1327,14 +1366,20 @@ public:
     }
 
     pair<vector<Ptr<Segment>>, double> findShortestPath(const Ptr<Location>& source, const Ptr<Location>& destination) {
+        if (source->name() == destination->name()) {
+            cout << "returned 0 path" << endl;
+            return make_pair(vector<Ptr<Segment>>(), 0);
+        }
         string key = source->name() + "->" + destination->name();
         pair<vector<Ptr<Segment>>, double> pathDistPair;
-        if (cache_.exists(key)) {
-            pathDistPair = cache_.fetch(key);
+        startedAtLeastOneTrip = true;
+        numCacheChecks_++;
+        if (cache_.containsCacheEntry(key)) {
+            numCacheHits_++;
+            pathDistPair = cache_.cacheEntry(key);
             auto shortestPath = pathDistPair.first;
             auto shortestPathDistance = pathDistPair.second;
-            cout << "Inserting (<" << source->name() << destination->name() << ">, < shortestPath starting at " << shortestPath[0]->source()->name() << ", " << shortestPathDistance << ">)" << endl;
-            cout << "test 4" << endl;
+            cout << "cacheHit!!! (<" << source->name() << destination->name() << ">, < " << ", " << shortestPathDistance << ">)" << endl;
             cout << pathDistPair.first.size() << endl;
             return pathDistPair;
         }
@@ -1344,6 +1389,7 @@ public:
         recDFSForShortestPath( source, destination, 0, currPath, 
                                 visitedLocationDistances, visitedLocationShortestPaths);
         vector<Ptr<Segment>> shortestPath = visitedLocationShortestPaths[destination->name()];
+        cout << "shortestPath.size() =" << shortestPath.size() << endl;
         double shortestPathDistance = visitedLocationDistances[destination->name()];
         
         // cout << "Distance from " << source->name() << " to " << destination->name() << " is " << shortestPathDistance << ". Path is: " << endl;;
@@ -1351,9 +1397,21 @@ public:
         //     cout << "\t" << shortestPath[i]->source()->name() << " -> " << shortestPath[i]->destination()->name() << " : " << shortestPath[i]->length().value() << "\n";
         // }
         pathDistPair = make_pair(shortestPath, shortestPathDistance);
-        cache_.insert(key, pathDistPair);
-        cout << "Inserting (<" << source->name() << destination->name() << ">, < shortestPath starting at " << shortestPath[0]->source()->name() << ", " << shortestPathDistance << ">)" << endl;
+        cache_.cacheEntryIs(key, pathDistPair);
+        // cout << "Inserting (<" << source->name() << destination->name() << ">, < shortestPath starting at " << shortestPath[0]->source()->name() << ", " << shortestPathDistance << ">)" << endl;
         return pathDistPair;
+    }
+
+    unsigned int numCacheHits() {
+        return numCacheHits_;
+    }
+
+    unsigned int numCacheChecks() {
+        return numCacheChecks_;
+    }
+
+    double cacheEfficiency() {
+        return double(numCacheHits_) / numCacheChecks_;
     }
 
     // Notifiees
