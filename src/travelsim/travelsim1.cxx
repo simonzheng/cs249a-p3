@@ -10,6 +10,8 @@ using namespace fwk;
 using std::find;
 using std::ostringstream;
 using std::ifstream;
+using std::cin;
+using std::to_string;
 
 /********************************************************************************
 * Global Variables                                                              *
@@ -17,33 +19,22 @@ using std::ifstream;
 unsigned int minutesPerHour = 60;
 unsigned int secondsPerMinute = 60;
 
-bool randomTimes = false;
-unsigned int desiredNumRequests = 15;
-double timeBetweenRequestsInSeconds = 5 * secondsPerMinute;
-double desiredOverallTimespanInSeconds =  desiredNumRequests * timeBetweenRequestsInSeconds;
+// Global vars for setting particular simulations
+bool randomTimes;
+unsigned int desiredNumRequests;
+double timeBetweenRequestsInSeconds;
+double desiredOverallTimespanInSeconds;
 
 /********************************************************************************
 * Helper Classes and Functions                                                  *
 *********************************************************************************/
 
-string startedTripMessage(Ptr<Trip> trip) {
+string majorTripMessage(Ptr<Trip> trip, string message) {
     ostringstream oss;
-    oss << "\n\t\t[**************************]\n\t\t" << "Started Trip: " << trip->name() << "\n\t\t[**************************]\n";
+    oss << "\n\t\t[**************************]\n\t\t" << message << ": " << trip->name() << "\n\t\t[**************************]\n";
     return oss.str();
 }
 
-string finishedTripMessage(Ptr<Trip> trip) {
-    ostringstream oss;
-    oss << "\n\t\t[**************************]\n\t\t" << "Finished Trip: " << trip->name() << "\n\t\t[**************************]\n";
-    return oss.str();
-}
-
-void printTripStatistics(Ptr<TravelNetwork> tn) {
-    std::cout << "Trip Statistics: ";
-    cout << "numTrips: " << tn->stats("stats")->numTrips() << endl;
-    cout << "numCompletedTrips: " << tn->stats("stats")->numCompletedTrips() << endl;
-    cout << "averageWaitTime: " << (tn->stats("stats")->averageWaitTime().value() / secondsPerMinute) << " minutes."<< endl;
-}
 /**
  * Helper class for random number generation.
  */
@@ -150,25 +141,6 @@ void tripNew(
     tn->tripNew(trip);
 }
 
-
-static const Ptr<TravelNetwork> setupNetwork(Ptr<TravelNetwork> tn) {
-    locationNew(tn, "stanford1", "Residence");
-    locationNew(tn, "menlopark1", "Residence");
-    locationNew(tn, "sfo1", "Airport");
-    locationNew(tn, "lax1", "Airport");
-
-    segmentNew(tn, "carSeg1", "Road", "stanford1", "sfo1", 20);
-    segmentNew(tn, "carSeg2", "Road", "sfo1", "stanford1", 20);
-    segmentNew(tn, "carSeg3", "Road", "menlopark1", "stanford1", 20);
-    segmentNew(tn, "carSeg4", "Road", "sfo1", "menlopark1", 20);
-    segmentNew(tn, "carSeg5", "Road", "stanford1", "menlopark1", 5);
-    segmentNew(tn, "carSeg6", "Road", "menlopark1", "stanford1", 5);
-    segmentNew(tn, "flightSeg1", "Flight", "sfo1", "lax1", 350);
-
-    vehicleNew(tn, "car1", "Car", 70, 5, 0.75, "stanford1");
-    return tn;
-}
-
 /********************************************************************************
 * Global Variables (cont'd)                                                     *
 *********************************************************************************/
@@ -218,10 +190,10 @@ public:
     void onStatus() {
         const auto a = notifier();
         if (a->status() == Activity::running) {
-            string tripName = tripNameFromNum(tripNum);
-            logEntryNew(a->manager()->now(), "Adding trip: " + tripName);
+            string tripName = tripNameFromNum(tripNum_);
             tripNew(travelNetwork_, tripName, "menlopark1", "stanford1", 30); // TODO: changes these tripNew fields to be random
-            tripNum++;
+            logEntryNew(a->manager()->now(), majorTripMessage(travelNetwork_->trip(tripName), "Requested Trip"));
+            tripNum_++;
             a->nextTimeIsOffset(timeBetweenRequestsInSeconds);
         }
     }
@@ -235,12 +207,11 @@ protected:
     }
 
     Ptr<TravelNetwork> travelNetwork_;
-    unsigned int tripNum; // counter for our trip numbers
-
+    unsigned int tripNum_; // counter for our trip numbers
 
     TripRequesterSim(const Ptr<TravelNetwork> travelNetwork) :
         travelNetwork_(travelNetwork),
-        tripNum(1)
+        tripNum_(1)
     {
         // Nothing else to do.
     }
@@ -265,7 +236,7 @@ public:
         if (a->status() == Activity::running) {
             // Trip::waitingForVehicle
             if (trip_->status() == Trip::waitingForVehicle) {
-                cout << startedTripMessage(trip_) << endl;
+                cout << majorTripMessage(trip_, "Started Trip") << endl;
                 trip_->statusIs(Trip::goingToPickup);
                 const auto currLoc = trip_->vehicle()->location();
                 const auto currSeg = trip_->path()[0];
@@ -305,7 +276,7 @@ public:
                     logEntryNew(a->manager()->now(), "[" + trip_->name() + "]: Trip::goingToDropoff -> Trip::droppedOff.");
                     trip_->statusIs(Trip::droppedOff);
                     a->statusIs(Activity::stopped);
-                    logEntryNew(a->manager()->now(), finishedTripMessage(trip_));
+                    logEntryNew(a->manager()->now(), majorTripMessage(trip_, "Finished Trip"));
                 } else {
                     for (unsigned int i = 0; i < trip_->path().size(); i++) {
                         const auto currSeg = trip_->path()[i];
@@ -362,14 +333,12 @@ public:
         if (availableVehicles_.size() > 0) {
             assignNearestAvailableVehicle(trip);
             if (trip->vehicle() != null) {
-                logEntryNew(notifier()->manager()->now(), trip->name() + ": ServiceSim will schedule the trip since there's at least one available reachable car for: " + trip->name());
+                logEntryNew(notifier()->manager()->now(), "[ServiceSim: " + trip->name() + "," + trip->vehicle()->name() + "]: will schedule trip with assigned vehicle");
                 return;
-            } else {
-                logEntryNew(notifier()->manager()->now(), trip->name() + ": ServiceSim will not schedule the trip since the car isn't reachable to " + trip->name());
             }
         }
         waitingTrips_.push_back(trip); // Push back the trip if we can't find a vehicle that can service it
-        logEntryNew(notifier()->manager()->now(), trip->name() + ": ServiceSim will queue trip since no reachable cars available");
+        logEntryNew(notifier()->manager()->now(), "[ServiceSim: " + trip->name() + "]: will not schedule trip because no available reachable vehicle");
     }
 
     void onTravelNetworkTripDel(const Ptr<Trip>& trip) {
@@ -377,9 +346,9 @@ public:
         const auto iter = find(waitingTrips_.begin(), waitingTrips_.end(), trip);
         if (iter != waitingTrips_.end()) {
             waitingTrips_.erase(iter);
-            logEntryNew(notifier()->manager()->now(), "Erased waiting trip from serviceSim: " + trip->name());
+            logEntryNew(notifier()->manager()->now(), "[ServiceSim: " + trip->name() + "]: Erased waiting trip from serviceSim");
         } else {
-            logEntryNew(notifier()->manager()->now(), "Not a waiting trip so no removal in serviceSim: " + trip->name());
+            logEntryNew(notifier()->manager()->now(), "[ServiceSim: " + trip->name() + "]: Unable to find waiting trip so no erasure from serviceSim");
         }
     }
 
@@ -389,13 +358,12 @@ public:
             for (auto& trip : waitingTrips_) {
                 assignNearestAvailableVehicle(trip);
                 if (trip->vehicle() != null) {
-                    logEntryNew(notifier()->manager()->now(), vehicle->name() + ": ServiceSim will schedule a trip since this car is available and can reach the trip");
+                    logEntryNew(notifier()->manager()->now(), "[ServiceSim: " + trip->name() + "," + trip->vehicle()->name() + "]: will schedule trip with assigned vehicle");
                     return;
                 }
             }
-        } else {
-            logEntryNew(notifier()->manager()->now(), vehicle->name() + ": ServiceSim will put this car in the list because there are no reachable waiting trips");
         }
+        logEntryNew(notifier()->manager()->now(), "[ServiceSim: " + vehicle->name() + "]: will not schedule this vehicle because no available reachable trips");
     }
 
     void onTravelNetworkVehicleDel(const Ptr<Vehicle>& vehicle) {
@@ -403,9 +371,10 @@ public:
         const auto iter = find(availableVehicles_.begin(), availableVehicles_.end(), vehicle);
         if (iter != availableVehicles_.end()) {
             availableVehicles_.erase(iter);
-            logEntryNew(notifier()->manager()->now(), "Erased available vehicle from serviceSim: " + vehicle->name());
+            logEntryNew(notifier()->manager()->now(), "[ServiceSim: " + vehicle->name() + "]: Erased available vehicle from serviceSim");
         } else {
             logEntryNew(notifier()->manager()->now(), "Not a available vehicle so no removal in serviceSim: " + vehicle->name());
+            logEntryNew(notifier()->manager()->now(), "[ServiceSim: " + vehicle->name() + "]: Unable to find available vehicle so no erasure from serviceSim");
         }
     }
 
@@ -443,7 +412,7 @@ protected:
         if (closestVehicle == null) {
             return;
         }
-        logEntryNew(notifier()->manager()->now(), "assignNearestAvailableVehicle successfully assigned " + trip->name() + " the vehicle " + closestVehicle->name());
+        // logEntryNew(notifier()->manager()->now(), "[" + trip->name() + "]: Trip assigned nearest reachable available vehicle " + closestVehicle->name());
         trip->vehicleIs(closestVehicle);
         removeAssignedTripAndVehicle(trip, closestVehicle);
         trip->pathIs(shortestPath);
@@ -533,28 +502,91 @@ protected:
 // * Helper Classes and Functions (cont'd)                                          *
 // *********************************************************************************/
 
-// void setupSimulation(const Ptr<TravelNetwork>& tn, const Ptr<TripRequesterSim>& trs, string simNumAsString) {
-//     // Setup TravelNetwork
-//     string line;
-//     string setupFileName = "sim" + simNumAsString + "-setup.txt";
-//     ifstream setupFile (setupFileName);
-//     if (setupFile.is_open()) {
-//         while (getline(setupFile,line)) {
-//             cout << line << '\n';
-//         }
-//         setupFile.close();
-//     } else {
-//         cout << "Could not open file: " << setupFileName << endl;
-//     }
+void printChooser() {
+    cout << "\n\n******************************************************************************\n";
+    cout << "Welcome to travelsim! To try one simulation, please choose from the following:\n";
+    cout << "1 - \tA simulation in which 15 requests are made for a TravelNetwork with only one car (car1) starting at stanford1. \n";
+    cout << "\t All requests are from menlopark1 to stanford1, so the car rapidly shuttles back and forth.\n";
+    cout << "\t This simple simulation demonstrates that one car can service multiple vehicles and shows that this simulation checks \n";
+    cout << "\t every step of the path from the vehicle's current location to pickup sites and pickup to dropoff sites.\n";
+    cout << "\t Further, because trips are requested faster than car1 can process them, this shows that we queue the requests properly.\n";
 
-//     // Setup TripRequester
-//     // const Ptr<TripRequesterSim> tripRequesterSim = TripRequesterSim::instanceNew(mgr, tn);
-// }
+    cout << "2 - \tA simulation in which 15 requests are made for a TravelNetwork with 5 cars starting at stanford1. \n";
+    cout << "\t All requests are from menlopark1 to stanford1, so this is similar to the previous one but because \n";
+    cout << "\t there are more cars servicing requests asynchronously with respect to virtual time, we complete almost all trips.\n";
+    
+    cout << "******************************************************************************\n\n";
+}
+
+
+static const Ptr<TravelNetwork> setupNetwork(Ptr<TravelNetwork> tn, unsigned int simNum) {
+    // Base network
+    locationNew(tn, "stanford1", "Residence");
+    locationNew(tn, "menlopark1", "Residence");
+    locationNew(tn, "sfo1", "Airport");
+    locationNew(tn, "lax1", "Airport");
+
+    segmentNew(tn, "carSeg1", "Road", "stanford1", "sfo1", 20);
+    segmentNew(tn, "carSeg2", "Road", "sfo1", "stanford1", 20);
+    segmentNew(tn, "carSeg3", "Road", "menlopark1", "stanford1", 20);
+    segmentNew(tn, "carSeg4", "Road", "sfo1", "menlopark1", 20);
+    segmentNew(tn, "carSeg5", "Road", "stanford1", "menlopark1", 5);
+    segmentNew(tn, "carSeg6", "Road", "menlopark1", "stanford1", 5);
+    segmentNew(tn, "flightSeg1", "Flight", "sfo1", "lax1", 350);
+
+    // Configurations for different simulations
+    if (simNum == 1) {
+        vehicleNew(tn, "car1", "Car", 70, 5, 0.75, "stanford1");
+    } else if (simNum == 2) {
+        int desiredNumCarsInNetwork = 8;
+        for (int i = 0; i < desiredNumCarsInNetwork; i++) {
+            vehicleNew(tn, "car" + to_string(i), "Car", 70, 5, 0.75, "stanford1");    
+        }
+    }
+    return tn;
+}
+
+void setSimulationVars(unsigned int simNum) {
+    if (simNum == 1 || simNum == 2) {
+        randomTimes = false;
+        desiredNumRequests = 15;
+        timeBetweenRequestsInSeconds = 10 * secondsPerMinute;
+        desiredOverallTimespanInSeconds =  desiredNumRequests * timeBetweenRequestsInSeconds - 1;
+    } 
+}
+
+unsigned int maxSimNum = 2;
+
+void printTripStatistics(Ptr<TravelNetwork> tn) {
+    cout << "Stats:" << endl;
+    Ptr<Stats> stats = tn->stats("stats1");
+    cout << "# Residences:\t" << stats->numResidences() << endl;
+    cout << "# Roads:\t" << stats->numRoads() << endl;
+    cout << "# Cars:\t" << stats->numCars() << endl;
+
+    cout << endl;
+
+    cout << "Trip Statistics:\t" << endl;
+    cout << "numTrips:\t" << tn->stats("stats")->numTrips() << endl;
+    cout << "numCompleted:\t" << tn->stats("stats")->numCompletedTrips() << endl;
+    cout << "averageWait:\t" << (tn->stats("stats")->averageWaitTime().value() / secondsPerMinute) << " minutes."<< endl;
+    cout << endl;
+}
+
 /**
  * Main program creates a travel network, service simulation, and trip request simulation, and
  * then runs the simulation for a fixed period of time.
  */
 int main(int argc, char *argv[]) {
+    printChooser();
+    unsigned int simNum;
+    while (true) {
+        cin >> simNum;
+        if (simNum > 0 && simNum <= maxSimNum) break;
+        cout << "You must choose an integer between 1 and " << maxSimNum << endl;
+    }
+
+
     // Set up activity manager
     const auto mgr = SequentialManager::instance();
     const auto startTime = time(SystemTime::now());
@@ -563,17 +595,24 @@ int main(int argc, char *argv[]) {
     // Setup TravelNetwork and TripRequester
     const Ptr<TravelNetwork> tn = TravelNetwork::instanceNew("tn");
     const Ptr<ServiceSim> serviceSim = ServiceSim::instanceNew(mgr, tn);
-    setupNetwork(tn);
+    setupNetwork(tn, simNum);
+    setSimulationVars(simNum);
     const Ptr<TripRequesterSim> tripRequesterSim = TripRequesterSim::instanceNew(mgr, tn);
 
     // Start Running Simulation
-    logEntryNew(startTime, "\n****************************************\n*********[Starting Simulation]**********\n****************************************\n");
+    logEntryNew(startTime, "\n****************************************\n"
+                            "*********[Starting Simulation]**********\n"
+                            "****************************************\n");
     mgr->nowIs(startTime + desiredOverallTimespanInSeconds);
     tripRequesterSim->activityDel();
     serviceSim->activityDel();
-    logEntryNew(mgr->now(), "\n****************************************\n*********[Finished Simulation]**********\n****************************************\n");
+    logEntryNew(mgr->now(), "\n****************************************\n"
+                            "*********[Finished Simulation]**********\n"
+                            "****************************************\n");
 
     // Print statistics
     printTripStatistics(tn);
+    cout << "Feel free to run another simulation!" << endl;
+    
     return 0;
 }

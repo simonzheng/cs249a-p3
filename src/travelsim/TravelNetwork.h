@@ -10,6 +10,7 @@
 #include <ostream>
 #include <iostream>
 #include "fwk/fwk.h"
+#include "Cache.h"
 
 using std::cout;
 using std::cerr;
@@ -992,12 +993,12 @@ protected:
 
             // Check if location is a Residence
             if (dynamic_cast<Residence*>(location.ptr()) != null) {
-                stats_->numResidencesIncr();
+                stats_->numResidences_++;
             }
 
             // Check if location is a Airport
             if (dynamic_cast<Airport*>(location.ptr()) != null) {
-                stats_->numAirportsIncr();
+                stats_->numAirports_++;
             }
         }
 
@@ -1005,12 +1006,12 @@ protected:
         void onLocationDel(const Ptr<Location>& location) {
             // Check if location is a Residence
             if (dynamic_cast<Residence*>(location.ptr()) != null) {
-                stats_->numResidencesDecr();
+                stats_->numResidences_--;
             }
 
             // Check if location is a Airport
             if (dynamic_cast<Airport*>(location.ptr()) != null) {
-                stats_->numAirportsDecr();
+                stats_->numAirports_--;
             }
         }
 
@@ -1018,12 +1019,12 @@ protected:
         void onSegmentNew(const Ptr<Segment>& segment) {
             // Check if segment is a Road
             if (dynamic_cast<Road*>(segment.ptr()) != null) {
-                stats_->numRoadsIncr();
+                stats_->numRoads_++;
             }
 
             // Check if segment is a Flight
             if (dynamic_cast<Flight*>(segment.ptr()) != null) {
-                stats_->numFlightsIncr();
+                stats_->numFlights_++;
             }
         }
 
@@ -1031,18 +1032,44 @@ protected:
         void onSegmentDel(const Ptr<Segment>& segment) {
             // Check if segment is a Road
             if (dynamic_cast<Road*>(segment.ptr()) != null) {
-                stats_->numRoadsDecr();
+                stats_->numRoads_--;
             }
 
             // Check if segment is a Flight
             if (dynamic_cast<Flight*>(segment.ptr()) != null) {
-                stats_->numFlightsDecr();
+                stats_->numFlights_--;
+            }
+        }
+
+        /** Notification that a vehicle is added to the network. */
+        void onVehicleNew(const Ptr<Vehicle>& vehicle) {
+            // Check if vehicle is a Car
+            if (dynamic_cast<Car*>(vehicle.ptr()) != null) {
+                stats_->numCars_++;
+            }
+
+            // Check if vehicle is a Airplane
+            if (dynamic_cast<Airplane*>(vehicle.ptr()) != null) {
+                stats_->numAirplanes_++;
+            }
+        }
+
+        /** Notification that a vehicle is removed from the network. */
+        void onVehicleDel(const Ptr<Vehicle>& vehicle) {
+            // Check if vehicle is a Car
+            if (dynamic_cast<Car*>(vehicle.ptr()) != null) {
+                stats_->numCars_--;
+            }
+
+            // Check if vehicle is a Airplane
+            if (dynamic_cast<Airplane*>(vehicle.ptr()) != null) {
+                stats_->numAirplanes_--;
             }
         }
 
         /** Notification that a trip is added to the network. */
         void onTripNew(const Ptr<Trip>& trip) {
-            stats_->numTripsIncr();
+            stats_->numTrips_++;
 
             // Create a new trip tracker for each new trip
             auto tripTracker = TripTracker::instanceNew(trip);
@@ -1052,8 +1079,7 @@ protected:
 
         /** Notification that a trip is removed from the network. */
         void onTripDel(const Ptr<Trip>& trip) {
-            stats_->numTripsDecr();
-            // tripTrackerMap_.erase(iter);
+            stats_->numTrips_--;
             stats_->tripTrackerMap_.erase(trip->name());
         }
         
@@ -1075,11 +1101,11 @@ protected:
         /** Notification that the trip's status changed. */
         void onStatus() {
             if (notifier()->status() == Trip::droppedOff) {
-                stats_->numCompletedTripsIncr();
+                stats_->numCompletedTrips_++;
             };
             if (notifier()->status() == Trip::goingToDropoff) {
-                stats_->numPickupsIncr();
-                stats_->cumWaitTimeIncr(notifier()->waitTime()); // TODO: Make sure this takes in the appropriate waitTime
+                stats_->numPickups_++;
+                stats_->cumWaitTime_ += notifier()->waitTime();
             }
         }
 
@@ -1094,6 +1120,8 @@ protected:
     unsigned int numTrips_ = 0;
     unsigned int numCompletedTrips_ = 0;
     unsigned int numPickups_ = 0;
+    unsigned int numCars_ = 0;
+    unsigned int numAirplanes_ = 0;
     Time cumWaitTime_ = 0;
 
     Ptr<TravelNetworkTracker> travelNetworkTracker_;
@@ -1106,65 +1134,6 @@ protected:
     }
     ~Stats() {
 
-    }
-
-    /********************************************************
-    * Relative Mutator Functions                            * TODO: Get rid of these and replace them with originals
-    ********************************************************/
-    void numResidencesIncr() {
-        numResidences_++;
-    }
-    void numResidencesDecr() {
-        numResidences_--;
-    }
-
-    void numAirportsIncr() {
-        numAirports_++;
-    }
-    void numAirportsDecr() {
-        numAirports_--;
-    }
-
-    void numFlightsIncr() {
-        numFlights_++;
-    }
-    void numFlightsDecr() {
-        numFlights_--;
-    }
-
-    void numRoadsIncr() {
-        numRoads_++;
-    }
-    void numRoadsDecr() {
-        numRoads_--;
-    }
-
-    void numTripsIncr() {
-        numTrips_++;
-    }
-    void numTripsDecr() {
-        numTrips_--;
-    }
-
-    void numCompletedTripsIncr() {
-        numCompletedTrips_++;
-    }
-    void numCompletedTripsDecr() {
-        numCompletedTrips_--;
-    }
-
-    void numPickupsIncr() {
-        numPickups_++;
-    }
-    void numPickupsDecr() {
-        numPickups_--;
-    }
-
-    void cumWaitTimeIncr(const Time waitTime) {
-        cumWaitTime_ += waitTime;
-    }
-    void cumWaitTimeDecr(const Time waitTime) {
-        cumWaitTime_ -= waitTime;
     }
 
 
@@ -1212,13 +1181,20 @@ public:
         return numPickups_;
     }
 
+    unsigned int numAirplanes() {
+        return numAirplanes_;
+    }
+
+    unsigned int numCars() {
+        return numCars_;
+    }
+
     unsigned int numCompletedTrips() {
         return numCompletedTrips_;
     }
 
     Time averageWaitTime() {
         if (numPickups_ == 0) return 0;
-        
         return cumWaitTime_.value() / numPickups_;
     }
 };
@@ -1242,6 +1218,8 @@ protected:
     typedef std::list<Notifiee*> NotifieeList;
     NotifieeList notifiees_;
     Ptr<TravelNetwork> travelNetwork_;
+    size_t cacheSize = 50;
+    Cache<string, pair<vector<Ptr<Segment>>,double>> cache_ = Cache<string, pair<vector<Ptr<Segment>>,double>>(cacheSize);
 
 
     explicit Conn(const string& name) : NamedInterface(name)
@@ -1249,7 +1227,6 @@ protected:
         // Nothing else to do.
     }
     ~Conn() {
-
     }
 
     void recDFSWithinMaxDistance(Ptr<Location> & currLocation, Miles distanceSoFar, Miles maxDistance, string pathSoFar, set < string > visitedLocations, vector<string>& pathsWithinMaxDistance) {
@@ -1350,6 +1327,17 @@ public:
     }
 
     pair<vector<Ptr<Segment>>, double> findShortestPath(const Ptr<Location>& source, const Ptr<Location>& destination) {
+        string key = source->name() + "->" + destination->name();
+        pair<vector<Ptr<Segment>>, double> pathDistPair;
+        if (cache_.exists(key)) {
+            pathDistPair = cache_.fetch(key);
+            auto shortestPath = pathDistPair.first;
+            auto shortestPathDistance = pathDistPair.second;
+            cout << "Inserting (<" << source->name() << destination->name() << ">, < shortestPath starting at " << shortestPath[0]->source()->name() << ", " << shortestPathDistance << ">)" << endl;
+            cout << "test 4" << endl;
+            cout << pathDistPair.first.size() << endl;
+            return pathDistPair;
+        }
         vector<Ptr<Segment>> currPath;
         unordered_map<string, double> visitedLocationDistances;
         unordered_map<string, vector<Ptr<Segment>>> visitedLocationShortestPaths;
@@ -1362,7 +1350,10 @@ public:
         // for (unsigned int i = 0; i < shortestPath.size(); i++) {
         //     cout << "\t" << shortestPath[i]->source()->name() << " -> " << shortestPath[i]->destination()->name() << " : " << shortestPath[i]->length().value() << "\n";
         // }
-        return make_pair(shortestPath, shortestPathDistance);
+        pathDistPair = make_pair(shortestPath, shortestPathDistance);
+        cache_.insert(key, pathDistPair);
+        cout << "Inserting (<" << source->name() << destination->name() << ">, < shortestPath starting at " << shortestPath[0]->source()->name() << ", " << shortestPathDistance << ">)" << endl;
+        return pathDistPair;
     }
 
     // Notifiees

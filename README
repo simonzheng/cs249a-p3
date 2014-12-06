@@ -1,16 +1,21 @@
 user: szheng0 (Zheng, Simon)
 
 # Extensions: 
-# 1. LRU cache to cache the shortest time paths between two locations and updating the cache when the network changes. The vehicle always pick a shortest time path on each trip.
-# 2. I recorded overall trip time for individual trips and added average overall trip time as a statistic that I track.
-# 3. Build and read simulations from an input text file.
+# 1. LRU cache to cache the shortest time paths between two locations and updating the cache when the network (i.e. segments are added or removed; note that this also includes when locations are removed because I make it so when locations are deleted from the network, they also delete their segments with them). The cache helps the vehicle always pick a shortest time path on each trip. Furthermore, if a path that's already in the cache is accessed once, I pull it to the beginning (this is what makes my cache a LRU cache as opposed to a least-recently added cache). 
+
+# TODO: Keep track of the candidate list of newly added segments. If you pull out a path from your cache that contains one of these new segments during your simulation, you recompute the shortest path. This lazy computation saves us time even in the face of new paths. Note that new paths are not likely to be created very often.
+# TODO: When a path is deleted, remove things from your cache that involve these paths. 
+# Note: I make the assumption that not much of the network is going to change, which I've confirmed with Sujeet is an appropriate assumption from his office hours on 12/5/2014.
+
+# 2. Statstics Tracking: I recorded overall trip time for individual trips and added average overall trip time as a statistic that I track. I also track the number of vehicles in the system.
+# 3. I have my trips print their progress along their specific paths (e.g. if the path is from "menlopark" -> "stanford" -> "sfo", I print each of these locations instead of what some suggested as just printing when one arrives at the pickup locations and dropoff locations). This is beyond the requirements of the basic functionality laid out by Mark here: https://piazza.com/class/hyvu42hikl4j3?cid=355
+# 4. Check for trying to create segments between two TravelNetworks that aren't the same. 
 #
 # Notes to Grader: 
+# Simulations: I describe my simulations when my program is ran from the Terminal. Please read the beginning prompt when you run travelsim1 in the build folder.
 # ServiceSim: I asked Prof. Linton if serviceSim should be a Sim class and he said that although it doesn't currently use the onStatus() and responds to changes in the TravelNetwork, rather than changes in Activities, we can leave it this way and trampoline from its internal TravelNetwork::Notifiee in case we do decide to have more simulator-like functionality in the future. Furthermore, he also states in this 
 
 # Note, discussed implementation tradeoffs and output with Ranajay Sen and Anh Truong. No code was shared.
 # My code is split across the files as follows:
-# client1.cxx -- has the testing code from p2
-# TravelInstanceManager -- has the TravelInstanceManager code with all of the ___Instance code from p2. Not used in this submission of p3.
-# TravelNetwork -- has the actual entity class definitions and the TravelNetwork class definition. This has been extended from p2 to fit the requirements of p3 detailed in the assignment handout: http://web.stanford.edu/class/cs249a/asgn3.html
-# 
+# travelsim1.cxx -- has the code for my ServiceSim, TripSim and TripRequestSim as well as code to run the 3 simulations that I've created.
+# TravelNetwork.h -- has the TravelNetwork entity class definitions (e.g. Segment, Location, TravelNetwork, Stats, etc.). This has been extended from p2 to fit the requirements of p3 detailed in the assignment handout: http://web.stanford.edu/class/cs249a/asgn3.html. The changes include adding the Trip class and a map of TripTrackers have been added and additional statistics are recorded and Conn has been modified to have the shortest path calculations.
